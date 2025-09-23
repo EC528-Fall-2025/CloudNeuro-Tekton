@@ -97,7 +97,7 @@ Certain elements are out of scope for this project, such as building a full libr
 
 **Global Architectural Structure of the Project:**
 The project architecture centers on containerized neuroimaging workflows deployed in Red Hat OpenShift and orchestrated with Tekton pipelines. 
-[IMAGE HERE]
+![Proposed Solution Architecture](./media/ec528-solution-architecture.png)
 
 At the high level, the architecture includes the following components:
 
