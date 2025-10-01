@@ -51,7 +51,7 @@ Call the app with `curl`, passing in a message:
 
 You should see ASCII art returned.
 
-If that doesn't work, you ucan test the backup public instance hosted by CHRIS:
+If that doesn't work, you can test the backup public instance hosted by CHRIS:
 * `curl "https://figlet.chrisproject.org/?message=Hello+World"`
 
 
