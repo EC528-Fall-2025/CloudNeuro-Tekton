@@ -1,0 +1,94 @@
+---
+# ConfigMap for Orthanc configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orthanc-config
+data:
+  orthanc.json: |
+    {
+      "Name" : "Orthanc",
+      "StorageDirectory" : "/var/lib/orthanc/db",
+      "HttpServerEnabled" : true,
+      "HttpPort" : 8042,
+      "AuthenticationEnabled" : true,
+      "RemoteAccessAllowed": true,
+      "RegisteredUsers": {
+          "orthanc": "orthanc"
+      },
+      "Plugins" : [
+        "/usr/local/share/orthanc/custom_plugins/libFnndscPatientList.so"
+      ]
+    }
+
+---
+# PersistentVolumeClaim for Orthanc data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: orthanc-test-pvc
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# Deployment for Orthanc
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orthanc-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orthanc-test
+  template:
+    metadata:
+      labels:
+        app: orthanc-test
+    spec:
+      containers:
+      - name: orthanc
+        image: image-registry.openshift-image-registry.svc:5000/chris-students-c9344e/orthanc:custom
+        ports:
+        - containerPort: 8042
+        volumeMounts:
+        - name: orthanc-config
+          mountPath: /etc/orthanc
+        - name: orthanc-storage
+          mountPath: /var/lib/orthanc/db
+      volumes:
+      - name: orthanc-config
+        configMap:
+          name: orthanc-config
+      - name: orthanc-storage
+        persistentVolumeClaim:
+          claimName: orthanc-test-pvc
+
+---
+# Service to expose Orthanc internally
+apiVersion: v1
+kind: Service
+metadata:
+  name: orthanc-test
+spec:
+  selector:
+    app: orthanc-test
+  ports:
+  - port: 8042
+    targetPort: 8042
+
+---
+# Route to expose Orthanc externally
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: orthanc-test
+spec:
+  to:
+    kind: Service
+    name: orthanc-test
+  port:
+    targetPort: 8042
