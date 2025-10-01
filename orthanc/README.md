@@ -1,0 +1,22 @@
+To run deploy, run this:
+`oc apply -f deploy-test.yaml`
+
+Then run this to find your pod, it will be named like orthanc-test-xxx -> Should be the one that is the youngest in age
+`oc get pods`
+
+Once you find that, run
+`oc expose pod <name-of-the-pod> --port=8042 --target-port=8042 --name=orthanc-service-<number>`
+
+I have already taken 2-5 so use other numbers
+
+Then run,
+`oc expose service orthanc-service-<number> --name=orthanc-route-<number>`
+
+`oc get route orthanc-route-<number>`
+
+You will get something like
+NAME              HOST/PORT                                                          PATH   SERVICES            PORT   TERMINATION   WILDCARD
+orthanc-route-5   orthanc-route-<number>-chris-students-c9344e.apps.shift.nerc.mghpcc.org          orthanc-service-5   8042                 None
+
+Take orthanc-route-<number>-chris-students-c9344e.apps.shift.nerc.mghpcc.org and run it on browser!!
+
