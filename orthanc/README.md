@@ -1,8 +1,8 @@
 To run deploy, run this:
 `oc apply -f deploy-test.yaml`
 
-Then run this to find your pod, it will be named like orthanc-test-xxx -> Should be the one that is the youngest in age
-`oc get pods`
+Then run `oc get pods` to find your pod, it will be named like orthanc-test-xxx -> Should be the one that is the youngest in age
+
 
 Once you find that, run
 `oc expose pod <name-of-the-pod> --port=8042 --target-port=8042 --name=orthanc-service-<number>`
