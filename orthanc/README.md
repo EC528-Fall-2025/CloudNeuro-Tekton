@@ -15,8 +15,8 @@ Then run,
 `oc get route orthanc-route-<number>`
 
 You will get something like
-NAME              HOST/PORT                                                          PATH   SERVICES            PORT   TERMINATION   WILDCARD
+`NAME              HOST/PORT                                                          PATH   SERVICES            PORT   TERMINATION   WILDCARD
 orthanc-route-<number>   orthanc-route-<number>-chris-students-c9344e.apps.shift.nerc.mghpcc.org          orthanc-service-5   8042                 None
-
-Take orthanc-route-<number>-chris-students-c9344e.apps.shift.nerc.mghpcc.org and run it on browser!!
+`
+Take `orthanc-route-<number>-chris-students-c9344e.apps.shift.nerc.mghpcc.org` and run it on browser!!
 
