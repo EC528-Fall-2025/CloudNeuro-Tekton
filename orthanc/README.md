@@ -1,4 +1,4 @@
-To run deploy, run this:
+To deploy, run this:
 `oc apply -f deploy-test.yaml`
 
 Then run `oc get pods` to find your pod, it will be named like orthanc-test-xxx -> Should be the one that is the youngest in age
