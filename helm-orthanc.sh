@@ -58,6 +58,9 @@ pushd "$CHART_DIR" > /dev/null
 helm dependency build
 popd > /dev/null
 
+# 6b) If needed, uninstall previous release
+# helm uninstall orthanc -n chris-students-c9344e 
+
 # 7) Deploy Orthanc via Helm
 echo " Installing Orthanc Helm chart..."
 helm install "$RELEASE_NAME" "$CHART_DIR" \
