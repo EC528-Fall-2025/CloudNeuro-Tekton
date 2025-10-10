@@ -1,0 +1,27 @@
+# ConfigMap for Orthanc configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "orthanc.fullname" . }}-config
+data:
+  orthanc.json: |
+    {
+      "Name" : "Orthanc",
+      "StorageDirectory" : "/var/lib/orthanc/db",
+      "HttpServerEnabled" : true,
+      "HttpPort" : {{ .Values.service.port }},
+      "AuthenticationEnabled" : {{ .Values.auth.enabled | toJson }},
+      "RemoteAccessAllowed": true,
+      "RegisteredUsers": {
+        {{- $users := keys .Values.auth.users }}
+        {{- range $i, $user := $users }}
+        "{{ $user }}": "{{ index $.Values.auth.users $user }}"{{ if lt (add $i 1) (len $users) }},{{ end }}
+        {{- end }}
+      },      
+      "Plugins" : [
+        {{- range $i, $p := .Values.plugins }}
+        "{{ $p }}"{{ if ne (add $i 1) (len $.Values.plugins) }},{{ end }}
+        {{- end }}
+      ]
+    }
+

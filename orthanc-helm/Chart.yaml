@@ -1,0 +1,28 @@
+apiVersion: v2
+name: orthanc
+description: Orthanc PACS Server
+home: https://www.orthanc-server.com/
+sources:
+- https://github.com/FNNDSC/charts/tree/master/charts/orthanc
+- https://orthanc.uclouvain.be/hg/orthanc/
+keywords:
+- DICOM
+- PACS
+- medicine
+- science
+- image processing
+
+type: application
+version: 2.0.1
+appVersion: "1.12.6"
+
+maintainers:
+- name: The FNNDSC Dev Team
+  email: dev@babyMRI.org
+  url: https://fnndsc.org
+
+dependencies:
+- name: oauth2-proxy
+  version: "~7.12.8"
+  repository: "https://oauth2-proxy.github.io/manifests"
+  condition: oauth2-proxy.enabled

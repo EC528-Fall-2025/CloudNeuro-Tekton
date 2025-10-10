@@ -1,0 +1,33 @@
+# Deployment for Orthanc
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "orthanc.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "orthanc.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "orthanc.fullname" . }}
+    spec:
+      containers:
+      - name: orthanc
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.service.port }}
+        volumeMounts:
+        - name: orthanc-config
+          mountPath: /etc/orthanc
+        - name: orthanc-storage
+          mountPath: /var/lib/orthanc/db
+      volumes:
+      - name: orthanc-config
+        configMap:
+          name: {{ include "orthanc.fullname" . }}-config
+      - name: orthanc-storage
+        persistentVolumeClaim:
+          claimName: {{ default (printf "%s-pvc" (include "orthanc.fullname" .)) .Values.persistence.existingClaim }}

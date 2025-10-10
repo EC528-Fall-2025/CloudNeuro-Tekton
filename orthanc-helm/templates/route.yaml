@@ -1,0 +1,13 @@
+# Route to expose Orthanc externally
+{{- if .Values.route.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "orthanc.fullname" . }}
+spec:
+  to:
+    kind: Service
+    name: {{ include "orthanc.fullname" . }}
+  port:
+    targetPort: {{ .Values.service.port }}
+{{- end }}

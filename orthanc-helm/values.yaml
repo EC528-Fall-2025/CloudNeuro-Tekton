@@ -1,0 +1,27 @@
+replicaCount: 1
+
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/chris-students-c9344e/orthanc
+  tag: custom
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8042
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 5Gi
+  existingClaim: ""   # Optional: set to use an existing PVC
+
+auth:
+  enabled: true
+  users:
+    orthanc: orthanc
+
+plugins:
+  - /usr/local/share/orthanc/custom_plugins/libFnndscPatientList.so
+
+route:
+  enabled: true
+  host: ""  # Optional: specify custom hostname
