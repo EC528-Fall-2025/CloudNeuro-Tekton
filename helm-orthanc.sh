@@ -6,8 +6,6 @@ NAMESPACE="chris-students-c9344e"
 RELEASE_NAME="orthanc"
 CHART_REPO_URL="https://github.com/FNNDSC/charts.git"
 CHART_DIR="charts/charts/orthanc"
-INDEX_SIZE="5Gi"
-STORAGE_SIZE="10Gi"
 
 # 1) Install Helm
 echo " Checking Helm installation..."
@@ -28,7 +26,7 @@ fi
 
 # 2) Add Helm repos
 echo " Adding Helm repos..."
-helm repo add oauth2-proxy https://oauth2-proxy.github.io/manifests
+helm repo add fnndsc https://fnndsc.github.io/charts
 helm repo update
 
 # 3) Switch to OpenShift project
@@ -38,55 +36,36 @@ if ! oc project "$NAMESPACE"; then
   exit 1
 fi
 
-# 4) Clone Orthanc chart if missing
-if [ ! -d "$CHART_DIR" ]; then
-  echo " Cloning Orthanc Helm chart..."
-  git clone "$CHART_REPO_URL"
-else
-  echo "📦 Orthanc chart already exists, skipping clone."
-fi
-
-# 5) Clean old Orthanc resources
-echo " Cleaning old Orthanc resources..."
-oc delete all -l app.kubernetes.io/instance=$RELEASE_NAME -n "$NAMESPACE" --ignore-not-found 2>/dev/null
-oc delete pvc -l app.kubernetes.io/instance=$RELEASE_NAME -n "$NAMESPACE" --ignore-not-found
-oc delete route "$RELEASE_NAME" -n "$NAMESPACE" --ignore-not-found
-
-# 6) Build chart dependencies
+# 4) Build chart dependencies
 echo " Building Helm dependencies..."
-pushd "$CHART_DIR" > /dev/null
+pushd "$CHART_DIR"
 helm dependency build
-popd > /dev/null
+popd
 
-# 6b) If needed, uninstall previous release
-# helm uninstall orthanc -n chris-students-c9344e 
-
-# 7) Deploy Orthanc via Helm
+# 5) Deploy Orthanc via Helm
 echo " Installing Orthanc Helm chart..."
-helm install "$RELEASE_NAME" "$CHART_DIR" \
-  --namespace "$NAMESPACE" \
-  --set persistence.index.enabled=true \
-  --set persistence.index.size=$INDEX_SIZE \
-  --set persistence.storage.enabled=true \
-  --set persistence.storage.size=$STORAGE_SIZE \
-  --set config.RemoteAccessAllowed=true \
-  --set config.AuthenticationEnabled=false \
-  --set oauth2-proxy.enabled=false \
-  --set securityContext.fsGroup=999 \
-  --set securityContext.runAsUser=999
+helm upgrade --install "$RELEASE_NAME" "$CHART_DIR" -f values.yaml
 
 echo " Waiting for Orthanc pod to be ready..."
 oc rollout status deployment/$RELEASE_NAME -n "$NAMESPACE"
 
-# 8) Expose route
-echo " Exposing Orthanc via OpenShift route..."
-oc expose svc $RELEASE_NAME --port=http -n "$NAMESPACE"
+# 6) Expose route
+echo "Ensuring OpenShift route exists..."
+if ! oc get route "$RELEASE_NAME" -n "$NAMESPACE"; then
+  echo "Creating new route for $RELEASE_NAME..."
+  if ! oc expose svc "$RELEASE_NAME" --port=http -n "$NAMESPACE"; then
+    echo " Failed to expose route automatically — it may already exist or need manual creation."
+  fi
+else
+  echo "Route already exists — skipping creation."
+fi
 
+# 7) Output access info
 ROUTE=$(oc get route $RELEASE_NAME -n "$NAMESPACE" -o jsonpath='{.spec.host}' || echo "not-found")
 echo
 echo " Orthanc deployment completed!"
 echo "-------------------------------------------"
-echo " Access Orthanc at: http://$ROUTE"
+echo " Access Orthanc at: https://$ROUTE"
 echo " REST API test:"
-echo "   curl -k http://$ROUTE/system"
+echo "   curl -k https://$ROUTE/system"
 echo "-------------------------------------------"
