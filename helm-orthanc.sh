@@ -28,7 +28,7 @@ fi
 
 # 2) Add Helm repos
 echo " Adding Helm repos..."
-helm repo add oauth2-proxy https://oauth2-proxy.github.io/manifests || true
+helm repo add oauth2-proxy https://oauth2-proxy.github.io/manifests
 helm repo update
 
 # 3) Switch to OpenShift project
@@ -48,9 +48,9 @@ fi
 
 # 5) Clean old Orthanc resources
 echo " Cleaning old Orthanc resources..."
-oc delete all -l app.kubernetes.io/instance=$RELEASE_NAME -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+oc delete all -l app.kubernetes.io/instance=$RELEASE_NAME -n "$NAMESPACE" --ignore-not-found 2>/dev/null
 oc delete pvc -l app.kubernetes.io/instance=$RELEASE_NAME -n "$NAMESPACE" --ignore-not-found
-oc delete route "$RELEASE_NAME" -n "$NAMESPACE" --ignore-not-found || true
+oc delete route "$RELEASE_NAME" -n "$NAMESPACE" --ignore-not-found
 
 # 6) Build chart dependencies
 echo " Building Helm dependencies..."
@@ -80,7 +80,7 @@ oc rollout status deployment/$RELEASE_NAME -n "$NAMESPACE"
 
 # 8) Expose route
 echo " Exposing Orthanc via OpenShift route..."
-oc expose svc $RELEASE_NAME --port=http -n "$NAMESPACE" || true
+oc expose svc $RELEASE_NAME --port=http -n "$NAMESPACE"
 
 ROUTE=$(oc get route $RELEASE_NAME -n "$NAMESPACE" -o jsonpath='{.spec.host}' || echo "not-found")
 echo
