@@ -66,6 +66,6 @@ echo
 echo " Orthanc deployment completed!"
 echo "-------------------------------------------"
 echo " Access Orthanc at: https://$ROUTE"
-echo " REST API test:"
-echo "   curl -k https://$ROUTE/system"
+echo " Alternatively, run endpoint test"
+echo "   curl https://$ROUTE/system"
 echo "-------------------------------------------"
