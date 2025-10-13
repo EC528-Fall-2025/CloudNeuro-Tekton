@@ -1,0 +1,73 @@
+# Create an OpenShift route, which is a NERC-OCP specific solution for allowing
+# "ingress" i.e. clients outside the cluster to talk to pods inside the cluster.
+route:
+  enabled: true
+  # !!! CHANGEME: `route.host` must be unique for each instance of Orthanc!!!
+  host: jennings-was-here.apps.shift.nerc.mghpcc.org
+  # Enable HTTPS
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+    destinationCACertificate: ''
+
+# Set container requests and limits for different resources like CPU or memory
+resources:
+  limits:
+    cpu: 1
+    memory: 4Gi
+  requests:
+    cpu: 1
+    memory: 4Gi
+
+# Enable persistent storage.
+# NOTE: persistence is disabled by default, because people might want to use
+#       advanced storage configurations e.g. replacing SQLite with PostgreSQL.
+#       Here, we enable persistence to achieve a stable and minimal working configuration.
+#
+# On storageClass: https://kubernetes.io/docs/concepts/storage/storage-classes/
+persistence:
+  index:
+    enabled: true
+    storageClass: ocs-external-storagecluster-ceph-rbd
+    size: 4Gi
+  storage:
+    enabled: true
+    storageClass: ocs-external-storagecluster-ceph-rbd
+    size: 8Gi
+
+# Orthanc configuration
+# Ref: https://orthanc.uclouvain.be/book/users/configuration.html
+#
+# Helm will convert the YAML values below to a JSON file expected by Orthanc.
+config:
+  Name: Jennings Was Here
+
+  # Hard-coded list of users who may login to Orthanc.
+  RegisteredUsers:
+    # <username>: <password>
+    jennings: jenningswashere
+
+  # -- Configuration of Orthanc Explorer 2
+  # -- https://orthanc.uclouvain.be/book/plugins/orthanc-explorer-2.html#configuration
+  OrthancExplorer2:
+    IsDefaultOrthancUI: true
+    Theme: "dark"
+
+# Everything below here is unnecessary, but included for your information.
+
+# oauth2 is a modern authentication protocol which enables single-sign-on (SSO)
+# e.g. with Google, GitHub, Discord, ...
+oauth2-proxy:
+  enabled: false
+
+# Crunchy Postgres Operator (PGO) automates deployment of PostgreSQL clusters
+# on Kubernetes, with advanced features such as replication and backups.
+crunchyPgo:
+  enabled: false
+
+# Filesystem storage is being used, as configured above by `persistence.storage.enable=true`.
+# Object storage is an alternative to filesystem storage. Depending on the
+# cloud provider (AWS, GCP, NERC, ...) object storage can have advantages—
+# it might be more scalable, durable, and/or cost-effective.
+objectStorage:
+  enabled: false
