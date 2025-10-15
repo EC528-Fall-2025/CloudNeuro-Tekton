@@ -3,6 +3,7 @@
 ## To the Cloud: Neuroscience Pipelines on Tekton
 
 ### DEMO VIDEO + SLIDES
+* [Sprint 2 Demo Video](https://youtu.be/zQTAtZsyRKE) | [Sprint 2 Slides](https://docs.google.com/presentation/d/1-xbEBPg6GZEJfzY3CbQVmoMvFs2EpyrgMJETLsXBBCY/edit?usp=drivesdk)
 * [Sprint 1 Demo Video](https://youtu.be/uLCBCPnanuE) | [Sprint 1 Slides](https://docs.google.com/presentation/d/1-ALj9ChKAheM6dkttzGoUHoqeJwRiWuEvDUVb_fA2Dg/edit?usp=sharing)
 
 ### Problem Statement
