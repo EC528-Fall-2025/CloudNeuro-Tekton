@@ -12,7 +12,7 @@ Authenticate to the NERC OpenShift cluster using your token:
 oc login --token=<your-token> --server=https://api.shift.nerc.mghpcc.org:6443
 ```
 
-This connects your local CLI session to the cluster.
+→ This connects your local CLI session to the cluster.
 
 ---
 
@@ -40,9 +40,9 @@ MSYS_NO_PATHCONV=1 oc cp chris-students-c9344e/nifti-viewer:/data ./NIFTI_Output
 MSYS_NO_PATHCONV=1 oc cp chris-students-c9344e/result-viewer:/results ./Emerald_Output
 ```
 
-This saves the converted **NIFTI** and **Emerald** results into local folders:
-- `NIFTI_Output/`
-- `Emerald_Output/`
+This saves the converted results into local folders:
+- `NIFTI_Output/` → contains `.nii.gz` files (from **pl-dcm2niix**)  
+- `Emerald_Output/` → contains `.nii` files (from **pl-emerald**)
 
 > **If you see an error like:**
 > ```
@@ -73,14 +73,48 @@ ls NIFTI_Output
 ls Emerald_Output
 ```
 
-You should see your `.nii` or `.nii.gz` files (for NIFTI) and `.zip` or processed Emerald outputs.
+You should see:
+- `.nii.gz` files in **NIFTI_Output**
+- `.nii` files in **Emerald_Output**
 
 ---
 
-## 6. Notes & Best Practices
-- Always verify that your namespace (`chris-students-c9344e`) is correct before running commands.  
-- Use descriptive pod names in your YAML files for clarity (e.g. `nifti-viewer`, `result-viewer`).  
-- For debugging, check pod logs:
+## 6. Opening NIFTI and Emerald Files in 3D Slicer (Windows)
+
+### Setup
+1. **Download and install [3D Slicer](https://www.slicer.org/)**.  
+   This software allows viewing and overlaying medical image volumes.
+
+2. **Load your output files:**
+   - Open Slicer.
+   - Go to `File → Add Data`.
+   - Select files from:
+     - `NIFTI_Output/` (for `.nii.gz` files)
+     - `Emerald_Output/` (for `.nii` files)
+
+3. **Overlay Mask and Original MRI Scan**
+   - Open the **View Controllers** tab.
+   - Turn on the small rings (link views) so changes affect all three panes.
+   - Select both your **mask** and **original MRI**.
+   - Adjust **opacity** to 50% for visualization.
+
+4. **3D Rendering**
+   - Open the **Volume Rendering** tab.
+   - Choose the **original MRI scan (NIFTI file)** to generate a 3D view.
+
+5. *(Optional)* Generate command-line visualizations similar to CHRIS:
+   ```bash
+   docker run --rm -v <NIFTI path>:/input -v <Emerald path>:/output ghcr.io/fnndsc/pl-emerald:latest emerald --mask-suffix '_mask.nii' --outputs '0.0:_brain.nii,0.2:_overlay02.nii' /input /output
+   ```
+
+   This creates three files — masks, extracted brains, and overlayed volumes for visualization.
+
+---
+
+## 7. Notes & Best Practices
+- Always verify your namespace (`chris-students-c9344e`) before running commands.  
+- Use descriptive pod names (e.g. `nifti-viewer`, `result-viewer`).  
+- For debugging:
   ```bash
   oc logs nifti-viewer
   oc logs result-viewer
@@ -93,3 +127,4 @@ You should see your `.nii` or `.nii.gz` files (for NIFTI) and `.zip` or processe
 - [OpenShift Command Line Tools](https://console.apps.shift.nerc.mghpcc.org/command-line-tools)
 - [CHRIS Project on GitHub](https://github.com/FNNDSC)
 - Related Apps: [`pl-dcm2niix`](https://github.com/FNNDSC/pl-dcm2niix), [`pl-emerald`](https://github.com/FNNDSC/pl-emerald)
+- [3D Slicer Official Site](https://www.slicer.org/)
