@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: emerald-extraction
+  namespace: chris-students-c9344e
+spec:
+  template:
+    spec:
+      containers:
+      - name: emerald
+        image: ghcr.io/fnndsc/pl-emerald:latest
+        args: 
+          - "emerald"
+          - "--pattern"
+          - "**/*.nii.gz"
+          - "--mask-suffix"
+          - "_mask.nii"
+          - "/incoming"
+          - "/outgoing"
+        volumeMounts:
+        - name: nifti-data
+          mountPath: /incoming
+        - name: emerald-data
+          mountPath: /outgoing
+      restartPolicy: Never
+      volumes:
+      - name: nifti-data
+        persistentVolumeClaim:
+          claimName: nifti-data
+      - name: emerald-data
+        persistentVolumeClaim:
+          claimName: emerald-output
+  backoffLimit: 2
