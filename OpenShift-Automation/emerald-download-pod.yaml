@@ -9,9 +9,9 @@ spec:
     image: registry.access.redhat.com/ubi9/ubi:latest
     command: ["sleep", "3600"]
     volumeMounts:
-    - name: emerald
-      mountPath: /results
+    - name: dicom-storage
+      mountPath: /data
   volumes:
-  - name: emerald
+  - name: dicom-storage
     persistentVolumeClaim:
-      claimName: emerald-output
+      claimName: dicom-pvc
