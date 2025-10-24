@@ -20,9 +20,12 @@ spec:
             
             # Orthanc connection details
             ORTHANC_URL = "http://orthanc:8042"
-            USERNAME = "jennings"
-            PASSWORD = "jenningswashere"
-            OUTPUT_DIR = "/data"
+            USERNAME = "orthanc-720"
+            PASSWORD = "jennings-minions"
+            OUTPUT_DIR = "/data/DICOM"
+            
+            # Create directory if it doesn't exist
+            os.makedirs(OUTPUT_DIR, exist_ok=True)
             
             auth = (USERNAME, PASSWORD)
             
@@ -57,5 +60,5 @@ spec:
       volumes:
       - name: dicom-storage
         persistentVolumeClaim:
-          claimName: dicom-data
+          claimName: dicom-pvc
   backoffLimit: 2
