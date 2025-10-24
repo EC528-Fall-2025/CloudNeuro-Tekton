@@ -20,22 +20,20 @@ spec:
             unzip dcm2niix_lnx.zip
             chmod +x dcm2niix
             
+            # Create output directory
+            mkdir -p /data/NIFTI
+            
             # Run conversion
-            ./dcm2niix -z y -b n -o /outgoing /incoming
+            ./dcm2niix -z y -b n -o /data/NIFTI /data/DICOM
             
             echo "Conversion complete!"
-            ls -la /outgoing
+            ls -la /data/NIFTI
         volumeMounts:
-        - name: dicom-data
-          mountPath: /incoming
-        - name: nifti-data
-          mountPath: /outgoing
+        - name: dicom-storage
+          mountPath: /data
       restartPolicy: Never
       volumes:
-      - name: dicom-data
+      - name: dicom-storage
         persistentVolumeClaim:
-          claimName: dicom-data
-      - name: nifti-data
-        persistentVolumeClaim:
-          claimName: nifti-data
+          claimName: dicom-pvc
   backoffLimit: 2
