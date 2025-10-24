@@ -15,19 +15,14 @@ spec:
           - "**/*.nii.gz"
           - "--mask-suffix"
           - "_mask.nii"
-          - "/incoming"
-          - "/outgoing"
+          - "/data/NIFTI"
+          - "/data/EMERALD"
         volumeMounts:
-        - name: nifti-data
-          mountPath: /incoming
-        - name: emerald-data
-          mountPath: /outgoing
+        - name: dicom-storage
+          mountPath: /data
       restartPolicy: Never
       volumes:
-      - name: nifti-data
+      - name: dicom-storage
         persistentVolumeClaim:
-          claimName: nifti-data
-      - name: emerald-data
-        persistentVolumeClaim:
-          claimName: emerald-output
+          claimName: dicom-pvc
   backoffLimit: 2
