@@ -9,9 +9,9 @@ spec:
     image: registry.access.redhat.com/ubi9/ubi:latest
     command: ["sleep", "3600"]
     volumeMounts:
-    - name: nifti
+    - name: dicom-storage
       mountPath: /data
   volumes:
-  - name: nifti
+  - name: dicom-storage
     persistentVolumeClaim:
-      claimName: nifti-data
+      claimName: dicom-pvc
