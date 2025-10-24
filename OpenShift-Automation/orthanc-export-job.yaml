@@ -1,0 +1,64 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: orthanc-export
+  namespace: chris-students-c9344e
+spec:
+  template:
+    spec:
+      containers:
+      - name: exporter
+        image: registry.access.redhat.com/ubi9/python-311:latest
+        command: ["/bin/bash"]
+        args:
+          - -c
+          - |
+            pip install requests
+            python3 << 'EOF'
+            import requests
+            import os
+            
+            # Orthanc connection details
+            ORTHANC_URL = "http://orthanc:8042"
+            USERNAME = "orthanc-720"
+            PASSWORD = "jennings-minions"
+            OUTPUT_DIR = "/data/DICOM"
+            
+            # Create directory if it doesn't exist
+            os.makedirs(OUTPUT_DIR, exist_ok=True)
+            
+            auth = (USERNAME, PASSWORD)
+            
+            # Get all studies
+            studies = requests.get(f"{ORTHANC_URL}/studies", auth=auth).json()
+            print(f"Found {len(studies)} studies")
+            
+            # For each study, get all instances and download
+            for study_id in studies:
+                print(f"Processing study: {study_id}")
+                instances = requests.get(f"{ORTHANC_URL}/studies/{study_id}/instances", auth=auth).json()
+                
+                for instance in instances:
+                    instance_id = instance['ID']
+                    print(f"Downloading instance: {instance_id}")
+                    
+                    # Download DICOM file
+                    response = requests.get(f"{ORTHANC_URL}/instances/{instance_id}/file", auth=auth)
+                    
+                    # Save to disk
+                    filepath = os.path.join(OUTPUT_DIR, f"{instance_id}.dcm")
+                    with open(filepath, 'wb') as f:
+                        f.write(response.content)
+            
+            print(f"Export complete! Files saved to {OUTPUT_DIR}")
+            print(f"Total files: {len(os.listdir(OUTPUT_DIR))}")
+            EOF
+        volumeMounts:
+        - name: dicom-storage
+          mountPath: /data
+      restartPolicy: Never
+      volumes:
+      - name: dicom-storage
+        persistentVolumeClaim:
+          claimName: dicom-pvc
+  backoffLimit: 2

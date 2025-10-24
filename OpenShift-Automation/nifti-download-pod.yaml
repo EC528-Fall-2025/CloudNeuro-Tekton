@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nifti-viewer
+  namespace: chris-students-c9344e
+spec:
+  containers:
+  - name: viewer
+    image: registry.access.redhat.com/ubi9/ubi:latest
+    command: ["sleep", "3600"]
+    volumeMounts:
+    - name: dicom-storage
+      mountPath: /data
+  volumes:
+  - name: dicom-storage
+    persistentVolumeClaim:
+      claimName: dicom-pvc

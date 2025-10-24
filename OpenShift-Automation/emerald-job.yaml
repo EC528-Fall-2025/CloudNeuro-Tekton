@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: emerald-extraction
+  namespace: chris-students-c9344e
+spec:
+  template:
+    spec:
+      containers:
+      - name: emerald
+        image: ghcr.io/fnndsc/pl-emerald:latest
+        args: 
+          - "emerald"
+          - "--pattern"
+          - "**/*.nii.gz"
+          - "--mask-suffix"
+          - "_mask.nii"
+          - "/data/NIFTI"
+          - "/data/EMERALD"
+        volumeMounts:
+        - name: dicom-storage
+          mountPath: /data
+      restartPolicy: Never
+      volumes:
+      - name: dicom-storage
+        persistentVolumeClaim:
+          claimName: dicom-pvc
+  backoffLimit: 2
