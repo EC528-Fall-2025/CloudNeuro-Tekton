@@ -12,7 +12,7 @@ spec:
         args: 
           - "emerald"
           - "--pattern"
-          - "**/*.nii.gz"
+          - "DICOM_SAG_MPRAGE_220_FOV_20130308074224_5.nii.gz"
           - "--mask-suffix"
           - "_mask.nii"
           - "/data/NIFTI"
