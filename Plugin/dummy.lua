@@ -45,7 +45,7 @@ function OnStoredInstance(instanceId, tags, metadata, origin)
         { name = "patientId",   value = patientId or "unknown" },
         { name = "studyId",     value = studyId or "unknown" },
         { name = "seriesId",    value = seriesId },
-        { name = "pattern",     value = "DICOM_SAG_MPRAGE_220_FOV_20130308074224_5.nii.gz" },
+        { name = "pattern",     value = "" },
         { name = "maskSuffix",  value = "_mask.nii" },
       },
       workspaces = {
