@@ -92,7 +92,7 @@ spec:
   params:
     - name: pattern
       type: string
-      default: "DICOM_SAG_MPRAGE_220_FOV_20130308074224_5.nii.gz"
+      default: "*.nii.gz"    
     - name: maskSuffix
       type: string
       default: "_mask.nii"
@@ -137,7 +137,7 @@ spec:
       type: string
     - name: pattern
       type: string
-      default: "DICOM_SAG_MPRAGE_220_FOV_20130308074224_5.nii.gz"
+      default: "*.nii.gz"
     - name: maskSuffix
       type: string
       default: "_mask.nii"
@@ -208,10 +208,11 @@ spec:
     - name: seriesId
       value: "d06ab3c7-c739be04-509c1388-5381e6c8-7e6e7765"
     - name: pattern
-      value: "DICOM_SAG_MPRAGE_220_FOV_20130308074224_5.nii.gz"
+      value: "*.nii.gz"
     - name: maskSuffix
       value: "_mask.nii"
   workspaces:
     - name: shared
       persistentVolumeClaim:
         claimName: dicom-pvc
+
