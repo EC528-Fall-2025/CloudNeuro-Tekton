@@ -1,0 +1,41 @@
+/* Make the app fill the page and play nicely with flex/grid parents */
+html, body, #root { height: 100%; margin: 0; }
+
+/* Toolbar */
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: .5rem;
+  padding: .5rem .75rem; border-bottom: 1px solid #eee;
+  align-items: center;
+}
+.toolbar input[type="text"] {
+  min-width: 240px; padding: .4rem .6rem;
+  border: 1px solid #ddd; border-radius: 6px;
+}
+.toolbar button, .toolbar .btn {
+  padding: .45rem .7rem; border: 1px solid #ddd;
+  background: #fafafa; border-radius: 6px; cursor: pointer;
+}
+.toolbar button:hover { background: #f3f3f3; }
+
+/* Viewer area */
+.viewer-shell {
+  height: calc(100% - 52px); /* subtract toolbar height */
+  min-height: 300px;
+  display: flex; flex-direction: column;
+}
+.viewer {
+  flex: 1 1 auto; min-height: 0; /* critical for flex children */
+  min-width: 0; position: relative; outline: none;
+  border-top: 1px solid #f2f2f2;
+}
+
+/* The canvas fills its parent; pixel buffer is sized in JS */
+.viewer > canvas { display: block; }
+
+/* Small helper overlay that vanishes on hover/focus */
+.paste-hint {
+  position: absolute; left: 12px; bottom: 10px; font-size: 12px;
+  background: rgba(255,255,255,.85); padding: .25rem .4rem; border-radius: 4px;
+  pointer-events: none; user-select: none;
+}
+.viewer:focus .paste-hint, .viewer:hover .paste-hint { opacity: .2; }
