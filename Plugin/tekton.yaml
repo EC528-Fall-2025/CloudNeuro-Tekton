@@ -15,6 +15,8 @@ spec:
       type: string
     - name: seriesId
       type: string
+    - name: SOPClassUID
+      type: string
   workspaces:
     - name: shared
   steps:
@@ -144,6 +146,9 @@ spec:
     - name: patientId
       type: string
       description: "Patient ID (used for metadata restoration)"
+    - name: SOPClassUID
+      type: string
+      description: "SOP Class UID to set in DICOM metadata"
   workspaces:
     - name: shared
   steps:
@@ -169,6 +174,9 @@ spec:
     - name: patch-metadata
       # Use GitHub Container Registry to avoid Docker Hub rate limits
       image: python:3.11-slim
+      env:
+      - name: SOPClassUID
+        value: $(params.SOPClassUID)
       script: |
         #!/usr/bin/env sh
         set -eux
@@ -179,6 +187,7 @@ spec:
 
         out_dir = os.path.join("$(workspaces.shared.path)", "DICOM_RECONVERTED")
         patient_id = "$(params.patientId)"
+        sop_class_uid = os.environ["SOPClassUID"]
         print(f"Patching DICOM metadata in {out_dir} for PatientID={patient_id}")
 
         for root, _, files in os.walk(out_dir):
@@ -189,6 +198,7 @@ spec:
                 ds = pydicom.dcmread(path)
                 # Update key metadata fields
                 ds.PatientID = patient_id
+                ds.SOPClassUID = sop_class_uid
                 ds.PatientName = "AI_Segmentation_Result"
                 ds.SeriesDescription = "AI segmentation of fetal brain"
                 ds.save_as(path)
@@ -213,6 +223,8 @@ spec:
       type: string
     - name: seriesId
       type: string
+    - name: SOPClassUID
+      type: string
     - name: pattern
       type: string
       # default: "DICOM_SAG_MPRAGE_220_FOV_20130308074224_5.nii.gz"
@@ -236,6 +248,8 @@ spec:
           value: $(params.studyId)
         - name: seriesId
           value: $(params.seriesId)
+        - name: SOPClassUID
+          value: $(params.SOPClassUID)
       workspaces:
         - name: shared
           workspace: shared
@@ -247,6 +261,8 @@ spec:
       params:
         - name: patientId
           value: $(params.patientId)
+        - name: SOPClassUID
+          value: $(params.SOPClassUID)
       workspaces:
         - name: shared
           workspace: shared
@@ -275,37 +291,39 @@ spec:
           value: "$(tasks.convert.results.metadata_filename)"
         - name: patientId
           value: $(params.patientId)
+        - name: SOPClassUID
+          value: $(params.SOPClassUID)
       workspaces:
         - name: shared
           workspace: shared
 
 
----
+# ---
 
-# PIPELINE RUN
-apiVersion: tekton.dev/v1
-kind: PipelineRun
-metadata:
-  name: orthanc-to-better-dicom-run
-spec:
-  pipelineRef:
-    name: orthanc-to-better-dicom
-  params:
-    - name: orthancUrl
-      value: "https://orthanc-chris.apps.shift.nerc.mghpcc.org"
-    - name: orthancAuth
-      value: "orthanc-720:jennings-minions"
-    - name: patientId
-      value: "7c222fb2-927d828a-f22f5921-34e89324-80637c0d"
-    - name: studyId
-      value: "37eccdd3-37e25c5f-1bd55640-81525651-e9b5e18b"
-    - name: seriesId
-      value: "d06ab3c7-c739be04-509c1388-5381e6c8-7e6e7765"
-    - name: pattern
-      value: "DICOM_SAG_MPRAGE_220_FOV_20130308074224_5.nii.gz"
-    - name: maskSuffix
-      value: "_mask.nii"
-  workspaces:
-    - name: shared
-      persistentVolumeClaim:
-        claimName: dicom-pvc
+# # PIPELINE RUN
+# apiVersion: tekton.dev/v1
+# kind: PipelineRun
+# metadata:
+#   name: orthanc-to-better-dicom-run
+# spec:
+#   pipelineRef:
+#     name: orthanc-to-better-dicom
+#   params:
+#     - name: orthancUrl
+#       value: "https://orthanc-chris.apps.shift.nerc.mghpcc.org"
+#     - name: orthancAuth
+#       value: "orthanc-720:jennings-minions"
+#     - name: patientId
+#       value: "7c222fb2-927d828a-f22f5921-34e89324-80637c0d"
+#     - name: studyId
+#       value: "37eccdd3-37e25c5f-1bd55640-81525651-e9b5e18b"
+#     - name: seriesId
+#       value: "d06ab3c7-c739be04-509c1388-5381e6c8-7e6e7765"
+#     - name: pattern
+#       value: "DICOM_SAG_MPRAGE_220_FOV_20130308074224_5.nii.gz"
+#     - name: maskSuffix
+#       value: "_mask.nii"
+#   workspaces:
+#     - name: shared
+#       persistentVolumeClaim:
+#         claimName: dicom-pvc

@@ -37,6 +37,7 @@ function OnStoredInstance(instanceId, tags, metadata, origin)
   local seriesId  = instance['ParentSeries']
   local patientId = tags["PatientID"]
   local studyId   = tags["StudyID"]
+  local SOPClassUID = tags["SOPClassUID"]
 
   if triggered_series[seriesId] then
     log("Series " .. seriesId .. " already triggered; skipping.")
@@ -59,11 +60,12 @@ function OnStoredInstance(instanceId, tags, metadata, origin)
     spec = {
       pipelineRef = { name = "orthanc-to-better-dicom" },
       params = {
-        { name = "orthancUrl",  value = "https://orthanc-chris.apps.shift.nerc.mghpcc.org" },
+        { name = "orthancUrl",  value = "https://km-was-here.apps.shift.nerc.mghpcc.org" },
         { name = "orthancAuth", value = "orthanc-720:jennings-minions" },
         { name = "patientId",   value = patientId or "unknown" },
         { name = "studyId",     value = studyId or "unknown" },
         { name = "seriesId",    value = seriesId },
+        { name = "SOPClassUID", value = SOPClassUID },
         { name = "pattern",     value = "" },
         { name = "maskSuffix",  value = "_mask.nii" },
       },
