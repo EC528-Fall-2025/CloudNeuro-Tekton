@@ -65,6 +65,11 @@ spec:
       type: string
   workspaces:
     - name: shared
+  results:
+    - name: nifti_filename
+      description: "First NIfTI file generated from DICOM series"
+    - name: metadata_filename
+      description: "Matching metadata JSON file for the first NIfTI"
   steps:
     - name: convert
       image: ghcr.io/fnndsc/pl-dcm2niix:latest
@@ -76,21 +81,18 @@ spec:
         mkdir -p "${OUTPUT_DIR}"
 
         echo " Starting conversion from DICOM → NIFTI..."
-        dcm2niix -z y -o "${OUTPUT_DIR}" "${INPUT_DIR}"
+        dcm2niix -b y -z y -o "${OUTPUT_DIR}" "${INPUT_DIR}"
 
-        # Pick the first NIfTI file as the pattern for downstream
         NIFTI_FILE=$(find "${OUTPUT_DIR}" -type f -name "*.nii.gz" | head -n1)
-        NIFTI_NAME=$(basename "$NIFTI_FILE")  # <-- take only the filename
+        NIFTI_NAME=$(basename "$NIFTI_FILE")
+        META_FILE="${NIFTI_FILE%.nii.gz}.json"
+        META_NAME=$(basename "$META_FILE")
+
         echo -n "$NIFTI_NAME" > $(results.nifti_filename.path)
-
-
+        echo -n "$META_NAME" > $(results.metadata_filename.path)
 
         echo " Conversion complete. Example outputs:"
         find "${OUTPUT_DIR}" -type f | head -n 10 || true
-  results:
-    - name: nifti_filename
-      description: "First NIfTI file generated from DICOM series"
-
 
 ---
 
@@ -129,11 +131,76 @@ spec:
 
 ---
 
+# TASK 4: Convert NIFTI → DICOM (fixed for image pull)
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: nifti2dicom-convert
+spec:
+  params:
+    - name: niftiFilename
+      type: string
+      description: "Name of the NIFTI file to convert back to DICOM"
+    - name: patientId
+      type: string
+      description: "Patient ID (used for metadata restoration)"
+  workspaces:
+    - name: shared
+  steps:
+    # Step 1: Convert NIFTI → DICOM
+    - name: convert-back
+      # Use the public v0.1.5 tag (known working)
+      image: ghcr.io/tomaroberts/nii2dcm:latest
+      script: |
+        #!/bin/sh
+        set -eux
+        INPUT_DIR="$(workspaces.shared.path)/NIFTI"
+        OUTPUT_DIR="$(workspaces.shared.path)/DICOM_RECONVERTED"
+        mkdir -p "${OUTPUT_DIR}"
+
+        NIFTI_FILE="${INPUT_DIR}/$(params.niftiFilename)"
+        echo "Converting NIFTI → DICOM using nii2dcm..."
+        nii2dcm "${NIFTI_FILE}" "${OUTPUT_DIR}"
+
+        echo "Conversion done. Example outputs:"
+        find "${OUTPUT_DIR}" -type f -name "*.dcm" | head || true
+
+    # Step 2: Patch metadata back into DICOMs
+    - name: patch-metadata
+      # Use GitHub Container Registry to avoid Docker Hub rate limits
+      image: python:3.11-slim
+      script: |
+        #!/usr/bin/env sh
+        set -eux
+        pip install --no-cache-dir pydicom
+        python3 - <<'EOF'
+        
+        import os, pydicom
+
+        out_dir = os.path.join("$(workspaces.shared.path)", "DICOM_RECONVERTED")
+        patient_id = "$(params.patientId)"
+        print(f"Patching DICOM metadata in {out_dir} for PatientID={patient_id}")
+
+        for root, _, files in os.walk(out_dir):
+            for f in files:
+                if not f.endswith(".dcm"):
+                    continue
+                path = os.path.join(root, f)
+                ds = pydicom.dcmread(path)
+                # Update key metadata fields
+                ds.PatientID = patient_id
+                ds.PatientName = "AI_Segmentation_Result"
+                ds.SeriesDescription = "AI segmentation of fetal brain"
+                ds.save_as(path)
+        print("Metadata restoration complete.")
+
+---
+
 # PIPELINE: download -> pl-dcm2niix -> pl-emerald
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
-  name: orthanc-to-emerald
+  name: orthanc-to-better-dicom
 spec:
   params:
     - name: orthancUrl
@@ -196,6 +263,22 @@ spec:
       workspaces:
         - name: shared
           workspace: shared
+    
+    - name: nifti2dicom
+      runAfter: [emerald]
+      taskRef:
+        name: nifti2dicom-convert
+      params:
+        - name: niftiFilename
+          value: "$(tasks.convert.results.nifti_filename)"
+        - name: metadataFilename
+          value: "$(tasks.convert.results.metadata_filename)"
+        - name: patientId
+          value: $(params.patientId)
+      workspaces:
+        - name: shared
+          workspace: shared
+
 
 ---
 
@@ -203,10 +286,10 @@ spec:
 apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
-  name: orthanc-to-emerald-run
+  name: orthanc-to-better-dicom-run
 spec:
   pipelineRef:
-    name: orthanc-to-emerald
+    name: orthanc-to-better-dicom
   params:
     - name: orthancUrl
       value: "https://orthanc-chris.apps.shift.nerc.mghpcc.org"
