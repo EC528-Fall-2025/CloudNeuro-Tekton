@@ -1,0 +1,13 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: hello-task
+spec:
+  steps:
+    - name: say-hello
+      script: |
+        #!/usr/bin/env bash
+        echo "Hello from Tekton"
+    - name: compute
+      command: ["bash", "-lc"]
+      args: ["echo $((2+3))"]
