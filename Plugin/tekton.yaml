@@ -15,8 +15,6 @@ spec:
       type: string
     - name: seriesId
       type: string
-    - name: SOPClassUID
-      type: string
   workspaces:
     - name: shared
   steps:
@@ -98,7 +96,7 @@ spec:
 
 ---
 
-# TASK 3: Run pl-emerald
+# TASK 3: Run pl-emerald + mask + metadata check
 apiVersion: tekton.dev/v1
 kind: Task
 metadata:
@@ -107,13 +105,19 @@ spec:
   params:
     - name: pattern
       type: string
-      # default: "DICOM_SAG_MPRAGE_220_FOV_20130308074224_5.nii.gz"
     - name: maskSuffix
       type: string
       default: "_mask.nii"
+    - name: patientId
+      type: string
+    - name: studyId
+      type: string
+    - name: seriesId
+      type: string
   workspaces:
     - name: shared
   steps:
+    # Step 1: Run EMERALD segmentation
     - name: emerald
       image: ghcr.io/fnndsc/pl-emerald:latest
       script: |
@@ -130,6 +134,59 @@ spec:
 
         echo "Extraction complete. Example outputs:"
         find "${OUTPUT_DIR}" -type f | head -n 10 || true
+
+    # Step 2: Apply mask to MRI using nibabel + numpy
+    - name: apply-mask
+      image: python:3.11-slim
+      script: |
+        #!/usr/bin/env bash
+        pip install nibabel numpy
+        python3 - <<'EOF'
+        import nibabel as nib
+        import numpy as np
+        import glob
+        import os
+
+        mri_path = "$(workspaces.shared.path)/NIFTI/$(params.pattern)"
+        base_name = os.path.basename(mri_path).replace(".nii.gz", "")
+        mask_candidates = glob.glob(f"$(workspaces.shared.path)/EMERALD/{base_name}*mask*.nii*")
+
+        if not mask_candidates:
+            raise FileNotFoundError(f"No mask found for {mri_path}")
+        mask_path = mask_candidates[0]
+
+        out_path = "$(workspaces.shared.path)/EMERALD/MR_masked_brain.nii.gz"
+        print(f"Loading MRI from {mri_path}")
+        print(f"Loading mask from {mask_path}")
+
+        mri_img = nib.load(mri_path)
+        mask_img = nib.load(mask_path)
+        mri_data = mri_img.get_fdata()
+        mask_data = mask_img.get_fdata()
+
+        print("MRI shape:", mri_data.shape)
+        print("Mask shape:", mask_data.shape)
+
+        if mri_data.shape != mask_data.shape:
+            raise ValueError("MRI and mask shapes do not match. Check registration or affine matrices.")
+
+        masked_data = mri_data * (mask_data > 0)
+        masked_img = nib.Nifti1Image(masked_data, affine=mri_img.affine, header=mri_img.header)
+        nib.save(masked_img, out_path)
+        print(f"Saved masked volume: {out_path}")
+
+    # # Step 3: Inspect DICOM metadata (sanity check)
+    # - name: inspect-dicom
+    #   image: python:3.11-slim
+    #   script: |
+    #     #!/usr/bin/env sh
+    #     set -eux
+    #     pip install --no-cache-dir pydicom
+    #     python3 - <<'EOF'
+
+    #     import pydicom
+    #     ds = pydicom.dcmread("$(workspaces.shared.path)/$(params.patientId)/$(params.studyId)/$(params.seriesId)/IM_0001.dcm")
+    #     print(ds)
 
 ---
 
@@ -199,6 +256,12 @@ spec:
                 # Update key metadata fields
                 ds.PatientID = patient_id
                 ds.SOPClassUID = sop_class_uid
+                ds.file_meta.MediaStorageSOPClassUID = sop_class_uid
+                # ds.Modality = "MR"
+                # ds.SeriesInstanceUID = pydicom.uid.generate_uid()
+                # ds.StudyInstanceUID = pydicom.uid.generate_uid()
+                # ds.SeriesNumber = 999  # optional, helps Orthanc group
+                # ds.InstanceNumber = 1
                 ds.PatientName = "AI_Segmentation_Result"
                 ds.SeriesDescription = "AI segmentation of fetal brain"
                 ds.save_as(path)
@@ -276,9 +339,16 @@ spec:
           value: "$(tasks.convert.results.nifti_filename)"
         - name: maskSuffix
           value: $(params.maskSuffix)
+        - name: patientId
+          value: $(params.patientId)
+        - name: studyId
+          value: $(params.studyId)
+        - name: seriesId
+          value: $(params.seriesId)
       workspaces:
         - name: shared
           workspace: shared
+
     
     - name: nifti2dicom
       runAfter: [emerald]
