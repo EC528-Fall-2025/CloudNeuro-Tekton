@@ -1,0 +1,42 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: example-pipeline-complete
+spec:
+  description: >
+    End-to-end pipeline that exercises runAfter edges and inline task specs.
+    Each task emits log-friendly messages for renderer comparisons.
+  tasks:
+    - name: fetch
+      taskSpec:
+        steps:
+          - name: simulate-fetch
+            command: ["bash", "-lc"]
+            args:
+              - |
+                set -euo pipefail
+                echo "[pipeline] fetching remote artifacts"
+                sleep 1
+    - name: quality-check
+      runAfter:
+        - fetch
+      taskSpec:
+        steps:
+          - name: run-qc
+            script: |
+              #!/usr/bin/env bash
+              set -euo pipefail
+              echo "[pipeline] running QC..."
+              echo "qc=pass"
+    - name: package
+      runAfter:
+        - quality-check
+      taskSpec:
+        steps:
+          - name: archive
+            command: ["bash", "-lc"]
+            args:
+              - |
+                set -euo pipefail
+                echo "[pipeline] packaging release"
+                echo "archive.tar.gz"

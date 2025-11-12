@@ -1,33 +1,45 @@
+from __future__ import annotations
+
 from pathlib import Path
 import sys
 import typer
 from rich import print
-from tektonx.converter import convert_tekton_to_script, ConversionError
 
-app = typer.Typer(help="Convert K8s Job/Pod or Tekton Task/TaskRun to a bash script")
+from tektonx.converter import ConversionError, convert
+from tektonx.renderers import RENDERERS
 
-@app.command()
-def convert(
-    input: Path = typer.Argument(..., exists=True, readable=True, help="K8s/Tekton YAML file"),
-    out: Path | None = typer.Option(None, "--out", help="Write script to this path"),
+app = typer.Typer(help="Convert Tekton resources to multiple workflow formats.")
+
+
+@app.command(name="convert")
+def convert_command(
+    input: Path = typer.Argument(..., exists=True, readable=True, help="Tekton YAML file"),
+    out: Path | None = typer.Option(None, "--out", "-o", help="Write output to this path"),
+    target: str = typer.Option(
+        "bash",
+        "--target",
+        "-t",
+        help=f"Renderer to use ({', '.join(sorted(RENDERERS))})",
+    ),
 ):
-    """Read YAML and output a bash script."""
+    """Read Tekton YAML and emit the selected workflow backend."""
     try:
         data = input.read_text()
-        script = convert_tekton_to_script(data)
+        artifact = convert(data, target=target.lower())
     except ConversionError as e:
         print(f"[red]Conversion failed:[/red] {e}")
         raise typer.Exit(code=2)
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
         print(f"[red]Unexpected error:[/red] {e}")
         raise typer.Exit(code=1)
 
     if out:
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(script)
-        print(f"[green]Wrote script to {out}[/green]")
+        out.write_text(artifact)
+        print(f"[green]Wrote {target} artifact to {out}[/green]")
     else:
-        sys.stdout.write(script)
+        sys.stdout.write(artifact)
+
 
 if __name__ == "__main__":
     app()

@@ -1,0 +1,29 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  name: example-taskrun-complete
+spec:
+  serviceAccountName: default
+  taskSpec:
+    steps:
+      - name: inline-script
+        image: docker.io/library/bash:5.2
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          echo "[taskrun] inline script running"
+          hostname
+      - name: calculate-sum
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          total=$(python3 - <<'PY'
+          import json
+          print(sum([1, 2, 3]))
+          PY
+          )
+          echo "[taskrun] total: ${total}"
+        env:
+          - name: TASKRUN_FLAG
+            value: enabled
+        workingDir: /workspace/taskrun

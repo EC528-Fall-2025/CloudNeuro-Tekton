@@ -6,5 +6,9 @@ dist/
 wheels/
 *.egg-info
 
+# Tektonx specific
+*.golden
+*.done
+*.snakemake
 # Virtual environments
 .venv

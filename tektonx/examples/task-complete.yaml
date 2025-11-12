@@ -1,0 +1,29 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: example-task-complete
+  labels:
+    app: tektonx
+spec:
+  description: >
+    Demonstrates a standalone Tekton Task with multiple steps, env vars,
+    and working directories. Useful for renderer smoke tests.
+  steps:
+    - name: print-context
+      image: docker.io/library/bash:5.2
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "[task] cwd: $(pwd)"
+        echo "[task] date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "[task] user: ${USER:-unknown}"
+    - name: compute-pi
+      command: ["python3", "-c"]
+      args:
+        - |
+          import math
+          print("pi:", round(math.pi, 4))
+      env:
+        - name: PRECISION
+          value: "4"
+      workingDir: /workspace/results
