@@ -225,7 +225,7 @@ spec:
       script: |
         #!/usr/bin/env bash
         set -eux
-        pip install --no-cache-dir pydicom nibabel numpy SimpleITK
+        pip install --no-cache-dir pydicom nibabel numpy
         
         python3 - <<'EOF'
         import os
@@ -244,27 +244,67 @@ spec:
         
         print(f"Loading NIFTI from: {nifti_path}")
         print(f"Reference DICOM directory: {original_dicom_dir}")
-
+        
         # Load NIFTI
         nii_img = nib.load(nifti_path)
         nii_data = nii_img.get_fdata()
+        nii_affine = nii_img.affine
         
-        # Find reference DICOM
-        # Find reference DICOMs recursively
+        # Find and sort reference DICOMs by instance number
         ref_dicoms = sorted(
             glob.glob(os.path.join(original_dicom_dir, "**", "*.dcm"), recursive=True)
         )
-
+        
         if not ref_dicoms:
-            raise FileNotFoundError(
-                f"No reference DICOMs found under {original_dicom_dir} (searched recursively)"
-            )
-
-        ref_ds = pydicom.dcmread(ref_dicoms[0])
+            raise FileNotFoundError(f"No reference DICOMs found under {original_dicom_dir}")
+        
+        # Load reference DICOMs to extract spatial information
+        ref_datasets = []
+        for dcm_file in ref_dicoms:
+            try:
+                ds = pydicom.dcmread(dcm_file)
+                if hasattr(ds, 'ImagePositionPatient') and hasattr(ds, 'InstanceNumber'):
+                    ref_datasets.append(ds)
+            except Exception as e:
+                print(f"Warning: Could not read {dcm_file}: {e}")
+        
+        if not ref_datasets:
+            raise ValueError("No valid reference DICOMs with spatial information found")
+        
+        # Sort by instance number
+        ref_datasets.sort(key=lambda x: int(x.InstanceNumber))
+        
+        # Use first slice as reference
+        ref_ds = ref_datasets[0]
         print(f"Using reference DICOM: {ref_dicoms[0]}")
         print(f"Original SOP Class: {ref_ds.SOPClassUID}")
         
-        # Prepare for slice-by-slice conversion
+        # Extract spatial parameters from reference series
+        pixel_spacing = list(map(float, ref_ds.PixelSpacing))
+        
+        # Calculate slice spacing from reference series
+        if len(ref_datasets) > 1:
+            pos1 = np.array(ref_datasets[0].ImagePositionPatient, dtype=float)
+            pos2 = np.array(ref_datasets[1].ImagePositionPatient, dtype=float)
+            slice_spacing = float(np.linalg.norm(pos2 - pos1))
+        else:
+            slice_spacing = float(getattr(ref_ds, 'SliceThickness', 1.0))
+        
+        print(f"Pixel Spacing: {pixel_spacing}")
+        print(f"Slice Spacing: {slice_spacing}")
+        
+        # Get image orientation from reference
+        image_orientation = list(map(float, ref_ds.ImageOrientationPatient))
+        
+        # Calculate direction vectors for slice positions
+        row_cosines = np.array(image_orientation[:3])
+        col_cosines = np.array(image_orientation[3:])
+        slice_cosines = np.cross(row_cosines, col_cosines)
+        
+        # Starting position from reference
+        start_position = np.array(ref_ds.ImagePositionPatient, dtype=float)
+        
+        # Prepare for conversion
         if len(nii_data.shape) == 3:
             num_slices = nii_data.shape[2]
         else:
@@ -272,18 +312,18 @@ spec:
         
         print(f"Converting {num_slices} slices...")
         
-        # Generate new UIDs for the converted series
-        new_study_uid = ref_ds.StudyInstanceUID  # Keep same study
-        new_series_uid = pydicom.uid.generate_uid()  # New series for processed data
+        # Generate new UIDs
+        new_study_uid = ref_ds.StudyInstanceUID
+        new_series_uid = pydicom.uid.generate_uid()
         
         for slice_idx in range(num_slices):
             # Create new DICOM from reference
             new_ds = ref_ds.copy()
             
-            # Extract slice data
+            # Extract and process slice data
             slice_data = nii_data[:, :, slice_idx]
             
-            # Normalize to appropriate range for DICOM (0-4095 for 12-bit)
+            # Normalize to 12-bit range
             slice_min = slice_data.min()
             slice_max = slice_data.max()
             if slice_max > slice_min:
@@ -304,7 +344,25 @@ spec:
             new_ds.PhotometricInterpretation = "MONOCHROME2"
             new_ds.PixelRepresentation = 0
             
-            # Update UIDs - CRITICAL for Orthanc
+            # CRITICAL: Update spatial positioning metadata
+            # Calculate position for this slice
+            slice_position = start_position + (slice_spacing * slice_idx * slice_cosines)
+            new_ds.ImagePositionPatient = [f"{x:.6f}" for x in slice_position]
+            
+            # Set slice location
+            new_ds.SliceLocation = f"{slice_spacing * slice_idx:.6f}"
+            
+            # Ensure orientation is preserved
+            new_ds.ImageOrientationPatient = [f"{x:.6f}" for x in image_orientation]
+            
+            # Set spacing information
+            new_ds.PixelSpacing = [f"{x:.6f}" for x in pixel_spacing]
+            new_ds.SliceThickness = f"{slice_spacing:.6f}"
+            
+            # Ensure SpacingBetweenSlices is set
+            new_ds.SpacingBetweenSlices = f"{slice_spacing:.6f}"
+            
+            # Update UIDs
             new_ds.SeriesInstanceUID = new_series_uid
             new_ds.SOPInstanceUID = pydicom.uid.generate_uid()
             new_ds.file_meta.MediaStorageSOPInstanceUID = new_ds.SOPInstanceUID
@@ -337,15 +395,17 @@ spec:
         print(f"Successfully created {num_slices} DICOM slices in {output_dir}")
         print(f"Series UID: {new_series_uid}")
         
-        # Verify first file
-        verify_ds = pydicom.dcmread(os.path.join(output_dir, "slice_0000.dcm"))
-        print(f"Verification - First slice:")
-        print(f"  Rows x Columns: {verify_ds.Rows} x {verify_ds.Columns}")
-        print(f"  Series Description: {verify_ds.SeriesDescription}")
-        print(f"  SOP Class UID: {verify_ds.SOPClassUID}")
+        # Verify spatial consistency
+        verify_files = sorted(glob.glob(os.path.join(output_dir, "slice_*.dcm")))[:3]
+        print("\nVerifying spatial metadata of first 3 slices:")
+        for vf in verify_files:
+            vds = pydicom.dcmread(vf)
+            print(f"  {os.path.basename(vf)}:")
+            print(f"    ImagePositionPatient: {vds.ImagePositionPatient}")
+            print(f"    SliceLocation: {vds.SliceLocation}")
         EOF
-
-    
+        
+        
 
 ---
 
