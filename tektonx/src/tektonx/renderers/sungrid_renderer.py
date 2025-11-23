@@ -1,6 +1,6 @@
-
 import shlex
 import textwrap
+import tempfile
 from typing import Dict, List
 
 from tektonx.ir import Step, Workflow
@@ -34,11 +34,14 @@ def render(workflow: Workflow) -> str:
 
         lines.append(f'echo "Submitting task {task.name}..."')
 
-        # Typical qsub output: "Your job 12345 ("name") has been submitted"
-        lines.append(
-            f'{job_var}=$(qsub {hold_opt}<< "EOF" | awk \'{{print $3}}\')'
-        )
+        # Use temporary file approach instead of inline heredoc
+        lines.append(f'{job_var}_SCRIPT=$(mktemp)')
+        lines.append(f'cat > "${job_var}_SCRIPT" << "EOS"')
         lines.append("#!/usr/bin/env bash")
+        lines.append("#$ -cwd")
+        lines.append("#$ -V")
+        lines.append(f"#$ -N {task.name}")
+        lines.append("#$ -l h_vmem=2G")
         lines.append("set -euo pipefail")
 
         for step in task.steps or [Step(name="noop")]:
@@ -46,7 +49,9 @@ def render(workflow: Workflow) -> str:
             for cmd in _step_commands(step):
                 lines.append(cmd)
 
-        lines.append("EOF")
+        lines.append("EOS")
+        lines.append(f'{job_var}=$(qsub "${job_var}_SCRIPT" | awk \'{{print $3}}\')')
+        lines.append(f'rm -f "${job_var}_SCRIPT"')
         lines.append(f'echo "  Task {task.name} submitted as ${job_var}"')
         lines.append("")
 
