@@ -225,7 +225,7 @@ spec:
       script: |
         #!/usr/bin/env bash
         set -eux
-        pip install --no-cache-dir pydicom nibabel numpy
+        pip install --no-cache-dir pydicom nibabel numpy scikit-image
         
         python3 - <<'EOF'
         import os
@@ -234,6 +234,7 @@ spec:
         import numpy as np
         from datetime import datetime
         import glob
+        from skimage import transform
         
         # Paths
         workspace = "$(workspaces.shared.path)"
@@ -250,7 +251,11 @@ spec:
         nii_data = nii_img.get_fdata()
         nii_affine = nii_img.affine
         
-        # Find and sort reference DICOMs by instance number
+        print(f"NIFTI shape: {nii_data.shape}")
+        print(f"NIFTI data type: {nii_data.dtype}")
+        print(f"NIFTI value range: [{nii_data.min():.2f}, {nii_data.max():.2f}]")
+        
+        # Find and sort reference DICOMs
         ref_dicoms = sorted(
             glob.glob(os.path.join(original_dicom_dir, "**", "*.dcm"), recursive=True)
         )
@@ -258,7 +263,7 @@ spec:
         if not ref_dicoms:
             raise FileNotFoundError(f"No reference DICOMs found under {original_dicom_dir}")
         
-        # Load reference DICOMs to extract spatial information
+        # Load reference DICOMs
         ref_datasets = []
         for dcm_file in ref_dicoms:
             try:
@@ -273,16 +278,33 @@ spec:
         
         # Sort by instance number
         ref_datasets.sort(key=lambda x: int(x.InstanceNumber))
-        
-        # Use first slice as reference
         ref_ds = ref_datasets[0]
-        print(f"Using reference DICOM: {ref_dicoms[0]}")
-        print(f"Original SOP Class: {ref_ds.SOPClassUID}")
         
-        # Extract spatial parameters from reference series
+        print(f"Reference DICOM shape: {ref_ds.Rows} x {ref_ds.Columns}")
+        print(f"Reference DICOM BitsStored: {ref_ds.BitsStored}")
+        
+        # Get original DICOM intensity range
+        ref_pixel_array = ref_ds.pixel_array
+        ref_min = ref_pixel_array.min()
+        ref_max = ref_pixel_array.max()
+        print(f"Reference DICOM value range: [{ref_min}, {ref_max}]")
+        
+        # Check if resampling is needed
+        target_rows = ref_ds.Rows
+        target_cols = ref_ds.Columns
+        
+        needs_resampling = (nii_data.shape[0] != target_rows or 
+                           nii_data.shape[1] != target_cols)
+        
+        if needs_resampling:
+            print(f"⚠️  Resolution mismatch detected!")
+            print(f"   NIFTI: {nii_data.shape[0]}x{nii_data.shape[1]}")
+            print(f"   Target: {target_rows}x{target_cols}")
+            print(f"   Resampling to match original resolution...")
+        
+        # Extract spatial parameters
         pixel_spacing = list(map(float, ref_ds.PixelSpacing))
         
-        # Calculate slice spacing from reference series
         if len(ref_datasets) > 1:
             pos1 = np.array(ref_datasets[0].ImagePositionPatient, dtype=float)
             pos2 = np.array(ref_datasets[1].ImagePositionPatient, dtype=float)
@@ -290,44 +312,65 @@ spec:
         else:
             slice_spacing = float(getattr(ref_ds, 'SliceThickness', 1.0))
         
-        print(f"Pixel Spacing: {pixel_spacing}")
-        print(f"Slice Spacing: {slice_spacing}")
-        
-        # Get image orientation from reference
         image_orientation = list(map(float, ref_ds.ImageOrientationPatient))
-        
-        # Calculate direction vectors for slice positions
         row_cosines = np.array(image_orientation[:3])
         col_cosines = np.array(image_orientation[3:])
         slice_cosines = np.cross(row_cosines, col_cosines)
-        
-        # Starting position from reference
         start_position = np.array(ref_ds.ImagePositionPatient, dtype=float)
         
-        # Prepare for conversion
-        if len(nii_data.shape) == 3:
-            num_slices = nii_data.shape[2]
-        else:
-            raise ValueError(f"Expected 3D NIFTI, got shape {nii_data.shape}")
+        # Determine bit depth from reference
+        bits_stored = ref_ds.BitsStored
+        max_value = (2 ** bits_stored) - 1
         
+        print(f"Using {bits_stored}-bit depth (max value: {max_value})")
+        
+        # Get number of slices
+        num_slices = nii_data.shape[2]
         print(f"Converting {num_slices} slices...")
         
         # Generate new UIDs
         new_study_uid = ref_ds.StudyInstanceUID
         new_series_uid = pydicom.uid.generate_uid()
         
+        # Determine rescale parameters from original data
+        # Get window center/width if available
+        window_center = float(getattr(ref_ds, 'WindowCenter', 0))
+        window_width = float(getattr(ref_ds, 'WindowWidth', max_value))
+        rescale_intercept = float(getattr(ref_ds, 'RescaleIntercept', 0))
+        rescale_slope = float(getattr(ref_ds, 'RescaleSlope', 1))
+        
+        print(f"Original display window: Center={window_center}, Width={window_width}")
+        print(f"Original rescale: Slope={rescale_slope}, Intercept={rescale_intercept}")
+        
         for slice_idx in range(num_slices):
             # Create new DICOM from reference
             new_ds = ref_ds.copy()
             
-            # Extract and process slice data
-            slice_data = nii_data[:, :, slice_idx]
+            # Extract slice data
+            slice_data = nii_data[:, :, slice_idx].copy()
             
-            # Normalize to 12-bit range
-            slice_min = slice_data.min()
-            slice_max = slice_data.max()
+            # Resample if needed (use order=1 for bilinear, order=3 for bicubic)
+            if needs_resampling:
+                slice_data = transform.resize(
+                    slice_data, 
+                    (target_rows, target_cols),
+                    order=3,  # bicubic interpolation for better quality
+                    mode='edge',
+                    preserve_range=True,
+                    anti_aliasing=True
+                )
+            
+            # Preserve intensity range - DO NOT normalize to full bit depth
+            # This maintains the contrast of the masked brain
+            slice_min = nii_data.min()  # Use global min/max from entire volume
+            slice_max = nii_data.max()
+            
             if slice_max > slice_min:
-                slice_normalized = ((slice_data - slice_min) / (slice_max - slice_min) * 4095).astype(np.uint16)
+                # Map to same range as original DICOM
+                # This preserves relative intensities
+                slice_normalized = ((slice_data - slice_min) / (slice_max - slice_min) * 
+                                  (ref_max - ref_min) + ref_min)
+                slice_normalized = np.clip(slice_normalized, 0, max_value).astype(np.uint16)
             else:
                 slice_normalized = np.zeros_like(slice_data, dtype=np.uint16)
             
@@ -338,28 +381,27 @@ spec:
             new_ds.Rows = slice_normalized.shape[0]
             new_ds.Columns = slice_normalized.shape[1]
             new_ds.BitsAllocated = 16
-            new_ds.BitsStored = 12
-            new_ds.HighBit = 11
+            new_ds.BitsStored = bits_stored
+            new_ds.HighBit = bits_stored - 1
             new_ds.SamplesPerPixel = 1
             new_ds.PhotometricInterpretation = "MONOCHROME2"
             new_ds.PixelRepresentation = 0
             
-            # CRITICAL: Update spatial positioning metadata
-            # Calculate position for this slice
+            # Preserve rescale parameters
+            new_ds.RescaleIntercept = rescale_intercept
+            new_ds.RescaleSlope = rescale_slope
+            
+            # Preserve window settings for consistent display
+            new_ds.WindowCenter = window_center
+            new_ds.WindowWidth = window_width
+            
+            # Update spatial positioning metadata
             slice_position = start_position + (slice_spacing * slice_idx * slice_cosines)
             new_ds.ImagePositionPatient = [f"{x:.6f}" for x in slice_position]
-            
-            # Set slice location
             new_ds.SliceLocation = f"{slice_spacing * slice_idx:.6f}"
-            
-            # Ensure orientation is preserved
             new_ds.ImageOrientationPatient = [f"{x:.6f}" for x in image_orientation]
-            
-            # Set spacing information
             new_ds.PixelSpacing = [f"{x:.6f}" for x in pixel_spacing]
             new_ds.SliceThickness = f"{slice_spacing:.6f}"
-            
-            # Ensure SpacingBetweenSlices is set
             new_ds.SpacingBetweenSlices = f"{slice_spacing:.6f}"
             
             # Update UIDs
@@ -381,7 +423,7 @@ spec:
             new_ds.ContentDate = now.strftime('%Y%m%d')
             new_ds.ContentTime = now.strftime('%H%M%S')
             
-            # Ensure Transfer Syntax is set
+            # Ensure Transfer Syntax
             if not hasattr(new_ds.file_meta, 'TransferSyntaxUID'):
                 new_ds.file_meta.TransferSyntaxUID = pydicom.uid.ExplicitVRLittleEndian
             
@@ -392,18 +434,19 @@ spec:
             if slice_idx % 10 == 0:
                 print(f"Processed slice {slice_idx + 1}/{num_slices}")
         
-        print(f"Successfully created {num_slices} DICOM slices in {output_dir}")
+        print(f"\n Successfully created {num_slices} DICOM slices in {output_dir}")
         print(f"Series UID: {new_series_uid}")
         
-        # Verify spatial consistency
-        verify_files = sorted(glob.glob(os.path.join(output_dir, "slice_*.dcm")))[:3]
-        print("\nVerifying spatial metadata of first 3 slices:")
-        for vf in verify_files:
-            vds = pydicom.dcmread(vf)
-            print(f"  {os.path.basename(vf)}:")
-            print(f"    ImagePositionPatient: {vds.ImagePositionPatient}")
-            print(f"    SliceLocation: {vds.SliceLocation}")
+        # Verify first slice
+        verify_ds = pydicom.dcmread(os.path.join(output_dir, "slice_0000.dcm"))
+        verify_array = verify_ds.pixel_array
+        print(f"\nVerification - First slice:")
+        print(f"  Dimensions: {verify_ds.Rows} x {verify_ds.Columns}")
+        print(f"  Value range: [{verify_array.min()}, {verify_array.max()}]")
+        print(f"  Bits Stored: {verify_ds.BitsStored}")
+        print(f"  Window: C={verify_ds.WindowCenter}, W={verify_ds.WindowWidth}")
         EOF
+
         
         
 
