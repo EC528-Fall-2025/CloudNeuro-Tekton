@@ -63,6 +63,10 @@ spec:
   params:
     - name: patientId
       type: string
+    - name: studyId
+      type: string
+    - name: seriesId
+      type: string
   workspaces:
     - name: shared
   results:
@@ -76,7 +80,7 @@ spec:
       script: |
         #!/bin/sh
         set -eux
-        INPUT_DIR="$(workspaces.shared.path)/$(params.patientId)"
+        INPUT_DIR="$(workspaces.shared.path)/$(params.patientId)/$(params.studyId)/$(params.seriesId)"
         OUTPUT_DIR="$(workspaces.shared.path)/NIFTI"
         mkdir -p "${OUTPUT_DIR}"
 
@@ -203,69 +207,145 @@ spec:
     - name: patientId
       type: string
       description: "Patient ID (used for metadata restoration)"
+    - name: studyId
+      type: string
+      description: "Study ID for locating reference DICOMs"
+    - name: seriesId
+      type: string
+      description: "Series ID for locating reference DICOMs"
     - name: SOPClassUID
       type: string
       description: "SOP Class UID to set in DICOM metadata"
   workspaces:
     - name: shared
   steps:
-    # Step 1: Convert NIFTI → DICOM
-    - name: convert-back
-      # Use the public v0.1.5 tag (known working)
-      image: ghcr.io/tomaroberts/nii2dcm:latest
-      script: |
-        #!/bin/sh
-        set -eux
-        INPUT_DIR="$(workspaces.shared.path)/NIFTI"
-        OUTPUT_DIR="$(workspaces.shared.path)/DICOM_RECONVERTED"
-        mkdir -p "${OUTPUT_DIR}"
-
-        NIFTI_FILE="${INPUT_DIR}/$(params.niftiFilename)"
-        echo "Converting NIFTI → DICOM using nii2dcm..."
-        nii2dcm "${NIFTI_FILE}" "${OUTPUT_DIR}"
-
-        echo "Conversion done. Example outputs:"
-        find "${OUTPUT_DIR}" -type f -name "*.dcm" | head || true
-
-    # Step 2: Patch metadata back into DICOMs
-    - name: patch-metadata
-      # Use GitHub Container Registry to avoid Docker Hub rate limits
+    # Convert using reference DICOM for metadata
+    - name: convert-with-reference
       image: python:3.11-slim
-      env:
-      - name: SOPClassUID
-        value: $(params.SOPClassUID)
       script: |
-        #!/usr/bin/env sh
+        #!/usr/bin/env bash
         set -eux
-        pip install --no-cache-dir pydicom
-        python3 - <<'EOF'
+        pip install --no-cache-dir pydicom nibabel numpy SimpleITK
         
-        import os, pydicom
+        python3 - <<'EOF'
+        import os
+        import pydicom
+        import nibabel as nib
+        import numpy as np
+        from datetime import datetime
+        import glob
+        
+        # Paths
+        workspace = "$(workspaces.shared.path)"
+        nifti_path = os.path.join(workspace, "EMERALD", "MR_masked_brain.nii.gz")
+        original_dicom_dir = os.path.join(workspace, "$(params.patientId)", "$(params.studyId)", "$(params.seriesId)")
+        output_dir = os.path.join(workspace, "DICOM_RECONVERTED")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        print(f"Loading NIFTI from: {nifti_path}")
+        print(f"Reference DICOM directory: {original_dicom_dir}")
 
-        out_dir = os.path.join("$(workspaces.shared.path)", "DICOM_RECONVERTED")
-        patient_id = "$(params.patientId)"
-        sop_class_uid = os.environ["SOPClassUID"]
-        print(f"Patching DICOM metadata in {out_dir} for PatientID={patient_id}")
+        # Load NIFTI
+        nii_img = nib.load(nifti_path)
+        nii_data = nii_img.get_fdata()
+        
+        # Find reference DICOM
+        # Find reference DICOMs recursively
+        ref_dicoms = sorted(
+            glob.glob(os.path.join(original_dicom_dir, "**", "*.dcm"), recursive=True)
+        )
 
-        for root, _, files in os.walk(out_dir):
-            for f in files:
-                if not f.endswith(".dcm"):
-                    continue
-                path = os.path.join(root, f)
-                ds = pydicom.dcmread(path)
-                # Update key metadata fields
-                ds.PatientID = patient_id
-                ds.SOPClassUID = sop_class_uid
-                ds.file_meta.MediaStorageSOPClassUID = sop_class_uid
-                # ds.Modality = "MR"
-                # ds.SeriesInstanceUID = pydicom.uid.generate_uid()
-                # ds.StudyInstanceUID = pydicom.uid.generate_uid()
-                # ds.SeriesNumber = 999  # optional, helps Orthanc group
-                # ds.InstanceNumber = 1
-                ds.PatientName = "AI_Segmentation_Result"
-                ds.SeriesDescription = "AI segmentation of fetal brain"
-                ds.save_as(path)
-        print("Metadata restoration complete.")
+        if not ref_dicoms:
+            raise FileNotFoundError(
+                f"No reference DICOMs found under {original_dicom_dir} (searched recursively)"
+            )
+
+        ref_ds = pydicom.dcmread(ref_dicoms[0])
+        print(f"Using reference DICOM: {ref_dicoms[0]}")
+        print(f"Original SOP Class: {ref_ds.SOPClassUID}")
+        
+        # Prepare for slice-by-slice conversion
+        if len(nii_data.shape) == 3:
+            num_slices = nii_data.shape[2]
+        else:
+            raise ValueError(f"Expected 3D NIFTI, got shape {nii_data.shape}")
+        
+        print(f"Converting {num_slices} slices...")
+        
+        # Generate new UIDs for the converted series
+        new_study_uid = ref_ds.StudyInstanceUID  # Keep same study
+        new_series_uid = pydicom.uid.generate_uid()  # New series for processed data
+        
+        for slice_idx in range(num_slices):
+            # Create new DICOM from reference
+            new_ds = ref_ds.copy()
+            
+            # Extract slice data
+            slice_data = nii_data[:, :, slice_idx]
+            
+            # Normalize to appropriate range for DICOM (0-4095 for 12-bit)
+            slice_min = slice_data.min()
+            slice_max = slice_data.max()
+            if slice_max > slice_min:
+                slice_normalized = ((slice_data - slice_min) / (slice_max - slice_min) * 4095).astype(np.uint16)
+            else:
+                slice_normalized = np.zeros_like(slice_data, dtype=np.uint16)
+            
+            # Update pixel data
+            new_ds.PixelData = slice_normalized.tobytes()
+            
+            # Update image dimensions
+            new_ds.Rows = slice_normalized.shape[0]
+            new_ds.Columns = slice_normalized.shape[1]
+            new_ds.BitsAllocated = 16
+            new_ds.BitsStored = 12
+            new_ds.HighBit = 11
+            new_ds.SamplesPerPixel = 1
+            new_ds.PhotometricInterpretation = "MONOCHROME2"
+            new_ds.PixelRepresentation = 0
+            
+            # Update UIDs - CRITICAL for Orthanc
+            new_ds.SeriesInstanceUID = new_series_uid
+            new_ds.SOPInstanceUID = pydicom.uid.generate_uid()
+            new_ds.file_meta.MediaStorageSOPInstanceUID = new_ds.SOPInstanceUID
+            
+            # Update instance number
+            new_ds.InstanceNumber = slice_idx + 1
+            
+            # Update series metadata
+            new_ds.SeriesDescription = "AI Brain Mask - EMERALD"
+            new_ds.SeriesNumber = getattr(ref_ds, 'SeriesNumber', 999) + 1000
+            
+            # Update timestamps
+            now = datetime.now()
+            new_ds.SeriesDate = now.strftime('%Y%m%d')
+            new_ds.SeriesTime = now.strftime('%H%M%S')
+            new_ds.ContentDate = now.strftime('%Y%m%d')
+            new_ds.ContentTime = now.strftime('%H%M%S')
+            
+            # Ensure Transfer Syntax is set
+            if not hasattr(new_ds.file_meta, 'TransferSyntaxUID'):
+                new_ds.file_meta.TransferSyntaxUID = pydicom.uid.ExplicitVRLittleEndian
+            
+            # Save DICOM
+            output_path = os.path.join(output_dir, f"slice_{slice_idx:04d}.dcm")
+            new_ds.save_as(output_path, write_like_original=False)
+            
+            if slice_idx % 10 == 0:
+                print(f"Processed slice {slice_idx + 1}/{num_slices}")
+        
+        print(f"Successfully created {num_slices} DICOM slices in {output_dir}")
+        print(f"Series UID: {new_series_uid}")
+        
+        # Verify first file
+        verify_ds = pydicom.dcmread(os.path.join(output_dir, "slice_0000.dcm"))
+        print(f"Verification - First slice:")
+        print(f"  Rows x Columns: {verify_ds.Rows} x {verify_ds.Columns}")
+        print(f"  Series Description: {verify_ds.SeriesDescription}")
+        print(f"  SOP Class UID: {verify_ds.SOPClassUID}")
+        EOF
+
+    
 
 ---
 
@@ -324,8 +404,10 @@ spec:
       params:
         - name: patientId
           value: $(params.patientId)
-        - name: SOPClassUID
-          value: $(params.SOPClassUID)
+        - name: studyId
+          value: $(params.studyId)
+        - name: seriesId
+          value: $(params.seriesId)
       workspaces:
         - name: shared
           workspace: shared
@@ -357,43 +439,14 @@ spec:
       params:
         - name: niftiFilename
           value: "$(tasks.convert.results.nifti_filename)"
-        - name: metadataFilename
-          value: "$(tasks.convert.results.metadata_filename)"
         - name: patientId
           value: $(params.patientId)
+        - name: studyId
+          value: $(params.studyId)       
+        - name: seriesId
+          value: $(params.seriesId)    
         - name: SOPClassUID
           value: $(params.SOPClassUID)
       workspaces:
         - name: shared
           workspace: shared
-
-
-# ---
-
-# # PIPELINE RUN
-# apiVersion: tekton.dev/v1
-# kind: PipelineRun
-# metadata:
-#   name: orthanc-to-better-dicom-run
-# spec:
-#   pipelineRef:
-#     name: orthanc-to-better-dicom
-#   params:
-#     - name: orthancUrl
-#       value: "https://orthanc-chris.apps.shift.nerc.mghpcc.org"
-#     - name: orthancAuth
-#       value: "orthanc-720:jennings-minions"
-#     - name: patientId
-#       value: "7c222fb2-927d828a-f22f5921-34e89324-80637c0d"
-#     - name: studyId
-#       value: "37eccdd3-37e25c5f-1bd55640-81525651-e9b5e18b"
-#     - name: seriesId
-#       value: "d06ab3c7-c739be04-509c1388-5381e6c8-7e6e7765"
-#     - name: pattern
-#       value: "DICOM_SAG_MPRAGE_220_FOV_20130308074224_5.nii.gz"
-#     - name: maskSuffix
-#       value: "_mask.nii"
-#   workspaces:
-#     - name: shared
-#       persistentVolumeClaim:
-#         claimName: dicom-pvc
