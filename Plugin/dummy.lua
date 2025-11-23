@@ -27,29 +27,41 @@ local function save_triggered()
   f:close()
 end
 
-function OnStoredInstance(instanceId, tags, metadata, origin)
-  if origin['RequestOrigin'] == 'Lua' then return end
+function OnStableSeries(seriesId, tags, metadata)
+  log("Stable series detected: " .. seriesId)
 
-  log("New DICOM instance stored: " .. instanceId)
-  local instance_str = RestApiGet('/instances/' .. instanceId)
-  local instance = ParseJson(instance_str)
-
-  local seriesId  = instance['ParentSeries']
-  local patientId = tags["PatientID"]
-  local studyId   = tags["StudyID"]
-  local SOPClassUID = tags["SOPClassUID"]
-
+  -- Prevent re-triggering
   if triggered_series[seriesId] then
     log("Series " .. seriesId .. " already triggered; skipping.")
     return
   end
 
+  -- Fetch shared tags for the series
+  local sTags_json = RestApiGet('/series/' .. seriesId .. '/shared-tags')
+  local sTags = ParseJson(sTags_json)
+
+  local patientId        = sTags["PatientID"] or "unknown"
+  local studyId          = sTags["StudyInstanceUID"] or "unknown"
+  local seriesDesc       = sTags["SeriesDescription"] or ""
+  local SOPClassUID      = sTags["SOPClassUID"] or ""
+
+  -- If this is an EMERALD-generated series → don't trigger pipeline
+  if seriesDesc == "AI Brain Mask - EMERALD" then
+    log("Series " .. seriesId .. " is EMERALD output; skipping trigger.")
+    return
+  end
+
+  -- Mark as triggered BEFORE launching pipeline (to avoid double-fire)
   triggered_series[seriesId] = true
   save_triggered()
-  log("Triggering pipeline for series: " .. seriesId)
 
-  local tekton_url = "https://kubernetes.default.svc/apis/tekton.dev/v1/namespaces/chris-students-c9344e/pipelineruns"
+  log("Triggering pipeline for stable raw series: " .. seriesId)
 
+  -- Tekton API endpoint
+  local tekton_url =
+    "https://kubernetes.default.svc/apis/tekton.dev/v1/namespaces/chris-students-c9344e/pipelineruns"
+
+  -- PipelineRun payload
   local payload = {
     apiVersion = "tekton.dev/v1",
     kind = "PipelineRun",
@@ -62,12 +74,12 @@ function OnStoredInstance(instanceId, tags, metadata, origin)
       params = {
         { name = "orthancUrl",  value = "https://km-was-here.apps.shift.nerc.mghpcc.org" },
         { name = "orthancAuth", value = "orthanc-720:jennings-minions" },
-        { name = "patientId",   value = patientId or "unknown" },
-        { name = "studyId",     value = studyId or "unknown" },
-        { name = "seriesId",    value = seriesId },
+        { name = "patientId",   value = patientId },
+        { name = "studyId",     value = studyId },
+     	{ name = "seriesId",    value = seriesId },
         { name = "SOPClassUID", value = SOPClassUID },
-        { name = "pattern",     value = "" },
         { name = "maskSuffix",  value = "_mask.nii" },
+        { name = "pattern",     value = "" },
       },
       workspaces = {
         { name = "shared", persistentVolumeClaim = { claimName = "dicom-pvc" } }
@@ -75,25 +87,31 @@ function OnStoredInstance(instanceId, tags, metadata, origin)
     }
   }
 
-  local payload_json = DumpJson(payload)
+  -- Write JSON payload to temp file
   local tmp_file = "/tmp/payload.json"
-  local f = io.open(tmp_file, "w")
-  f:write(payload_json)
-  f:close()
+  do
+    local f = io.open(tmp_file, "w")
+    f:write(DumpJson(payload))
+    f:close()
+  end
 
+  -- Read Kubernetes service account token
   local ftoken = io.open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r")
   local token = ftoken:read("*a")
   ftoken:close()
 
-  os.execute("sleep 2") -- optional delay
+  os.execute("sleep 2")  -- small safety delay
 
+  -- Execute Tekton API POST
   local cmd = string.format(
-    "wget --method=POST --quiet --header='Authorization: Bearer %s' --header='Content-Type: application/json' " ..
-    "--body-file=%s --no-check-certificate -O - %s",
+    "wget --method=POST --quiet --header='Authorization: Bearer %s' " ..
+    "--header='Content-Type: application/json' --body-file=%s " ..
+    "--no-check-certificate -O - %s",
     token, tmp_file, tekton_url
   )
 
-  log("Executing: " .. cmd)
+  log("Executing Tekton trigger: " .. cmd)
   os.execute(cmd)
-  log("Triggered Tekton pipeline for series " .. seriesId)
+
+  log("Pipeline successfully triggered for series " .. seriesId)
 end
