@@ -1,0 +1,37 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: example-pipelinerun-complete
+spec:
+  params:
+    - name: dataset
+      value: sample-a
+  pipelineSpec:
+    tasks:
+      - name: preprocess
+        params:
+          - name: dataset
+            value: $(params.dataset)
+        taskSpec:
+          steps:
+            - name: normalize
+              script: |
+                #!/usr/bin/env bash
+                set -euo pipefail
+                echo "[pipelinerun] preprocessing $(params.dataset)"
+      - name: train
+        runAfter:
+          - preprocess
+        taskRef:
+          name: shared-train-task
+      - name: evaluate
+        runAfter:
+          - train
+        taskSpec:
+          steps:
+            - name: run-eval
+              command: ["bash", "-lc"]
+              args:
+                - |
+                  set -euo pipefail
+                  echo "[pipelinerun] evaluating results"

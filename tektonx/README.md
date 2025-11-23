@@ -1,27 +1,22 @@
-1. Install uv already have it:
+## Overview
 
-# macOS / Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
+`tektonx` converts Tekton Tasks / TaskRuns / Pipelines / PipelineRuns into other
+workflow backends using a shared intermediate representation. Today the bundled
+renderers target Bash (default), GNU Make, and Snakemake.
 
-# Windows (PowerShell)
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+## Prerequisites
 
-2. Set up dependencies:
+- Python 3.11+
+- [uv](https://github.com/astral-sh/uv) for environment + dependency management
 
-uv sync
+## Setup
 
-3. Run the example task:
-uv run python src/tektonx/cli.py examples/hello-task.yaml
-- epected output:
-=== Tekton Task/hello-task ===
---- Step: say-hello ---
-Hello from Tekton
---- Step: compute ---
-5
+1. Install `uv` if you haven’t already:
+   ```bash
+   # macOS / Linux
+   curl -LsSf https://astral.sh/uv/install.sh | sh
 
-<<<<<<< Updated upstream
 save the output as a script:
-=======
    # Windows (PowerShell)
    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
    ```
@@ -74,9 +69,16 @@ uv run python -m tektonx.cli convert examples/pipeline-complete.yaml --target sn
 Renderers write to stdout by default. Use `--out` to persist artifacts:
 
 ```bash
->>>>>>> Stashed changes
+
 mkdir -p dist
-uv run python src/tektonx/cli.py examples/hello-task.yaml --out dist/hello.sh
+uv run python -m tektonx.cli convert examples/hello-task.yaml --target bash --out dist/hello.sh
 chmod +x dist/hello.sh
 ./dist/hello.sh
+```
 
+## Example Inputs / Tests
+
+`examples/` includes ready-to-run Tekton sources that exercise every supported
+kind plus an error case. See [`examples/README.md`](examples/README.md) for a
+table of files and suggested commands (bash/make/snakemake) to validate parser
+and renderer behavior.
