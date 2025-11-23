@@ -17,6 +17,7 @@ renderers target Bash (default), GNU Make, Snakemake, and a ChRIS plugin
    # macOS / Linux
    curl -LsSf https://astral.sh/uv/install.sh | sh
 
+save the output as a script:
    # Windows (PowerShell)
    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
    ```
@@ -24,6 +25,21 @@ renderers target Bash (default), GNU Make, Snakemake, and a ChRIS plugin
    ```bash
    uv sync
    ```
+
+## Running Mac
+
+Install dependencies tools UV:
+```bash
+uv tool install .
+```
+
+```bash
+tektonx --help
+```
+
+```bash
+tektonx examples/hello-task.yaml --target slurm
+```
 
 ## Running Conversions
 
@@ -57,6 +73,7 @@ uv run python -m tektonx.cli convert examples/task-complete.yaml --target chris 
 Renderers write to stdout by default. Use `--out` to persist artifacts:
 
 ```bash
+
 mkdir -p dist
 uv run python -m tektonx.cli convert examples/hello-task.yaml --target bash --out dist/hello.sh
 chmod +x dist/hello.sh

@@ -6,7 +6,7 @@ from typing import Callable, Dict
 
 from tektonx.ir import Workflow
 
-from . import bash_renderer, chris_renderer, make_renderer, snakemake_renderer
+from . import bash_renderer, chris_renderer, make_renderer, snakemake_renderer, slurm_renderer, sungrid_renderer
 
 Renderer = Callable[[Workflow], str]
 
@@ -15,6 +15,8 @@ RENDERERS: Dict[str, Renderer] = {
     "chris": chris_renderer.render,
     "make": make_renderer.render,
     "snakemake": snakemake_renderer.render,
+    "slurm": slurm_renderer.render,
+    "sungrid": sungrid_renderer.render,
 }
 
 
