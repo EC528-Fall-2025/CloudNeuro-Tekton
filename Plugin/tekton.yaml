@@ -63,6 +63,10 @@ spec:
   params:
     - name: patientId
       type: string
+    - name: studyId
+      type: string
+    - name: seriesId
+      type: string
   workspaces:
     - name: shared
   results:
@@ -76,7 +80,7 @@ spec:
       script: |
         #!/bin/sh
         set -eux
-        INPUT_DIR="$(workspaces.shared.path)/$(params.patientId)"
+        INPUT_DIR="$(workspaces.shared.path)/$(params.patientId)/$(params.studyId)/$(params.seriesId)"
         OUTPUT_DIR="$(workspaces.shared.path)/NIFTI"
         mkdir -p "${OUTPUT_DIR}"
 
@@ -203,69 +207,248 @@ spec:
     - name: patientId
       type: string
       description: "Patient ID (used for metadata restoration)"
+    - name: studyId
+      type: string
+      description: "Study ID for locating reference DICOMs"
+    - name: seriesId
+      type: string
+      description: "Series ID for locating reference DICOMs"
     - name: SOPClassUID
       type: string
       description: "SOP Class UID to set in DICOM metadata"
   workspaces:
     - name: shared
   steps:
-    # Step 1: Convert NIFTI → DICOM
-    - name: convert-back
-      # Use the public v0.1.5 tag (known working)
-      image: ghcr.io/tomaroberts/nii2dcm:latest
-      script: |
-        #!/bin/sh
-        set -eux
-        INPUT_DIR="$(workspaces.shared.path)/NIFTI"
-        OUTPUT_DIR="$(workspaces.shared.path)/DICOM_RECONVERTED"
-        mkdir -p "${OUTPUT_DIR}"
-
-        NIFTI_FILE="${INPUT_DIR}/$(params.niftiFilename)"
-        echo "Converting NIFTI → DICOM using nii2dcm..."
-        nii2dcm "${NIFTI_FILE}" "${OUTPUT_DIR}"
-
-        echo "Conversion done. Example outputs:"
-        find "${OUTPUT_DIR}" -type f -name "*.dcm" | head || true
-
-    # Step 2: Patch metadata back into DICOMs
-    - name: patch-metadata
-      # Use GitHub Container Registry to avoid Docker Hub rate limits
+    # Convert using reference DICOM for metadata
+    - name: convert-with-reference
       image: python:3.11-slim
-      env:
-      - name: SOPClassUID
-        value: $(params.SOPClassUID)
       script: |
-        #!/usr/bin/env sh
+        #!/usr/bin/env bash
         set -eux
-        pip install --no-cache-dir pydicom
-        python3 - <<'EOF'
+        pip install --no-cache-dir pydicom nibabel numpy scikit-image
         
-        import os, pydicom
+        python3 - <<'EOF'
+        import os
+        import pydicom
+        import nibabel as nib
+        import numpy as np
+        from datetime import datetime
+        import glob
+        from skimage import transform
+        
+        # Paths
+        workspace = "$(workspaces.shared.path)"
+        nifti_path = os.path.join(workspace, "EMERALD", "MR_masked_brain.nii.gz")
+        original_dicom_dir = os.path.join(workspace, "$(params.patientId)", "$(params.studyId)", "$(params.seriesId)")
+        output_dir = os.path.join(workspace, "DICOM_RECONVERTED")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        print(f"Loading NIFTI from: {nifti_path}")
+        print(f"Reference DICOM directory: {original_dicom_dir}")
+        
+        # Load NIFTI
+        nii_img = nib.load(nifti_path)
+        nii_data = nii_img.get_fdata()
+        nii_affine = nii_img.affine
+        
+        print(f"NIFTI shape: {nii_data.shape}")
+        print(f"NIFTI data type: {nii_data.dtype}")
+        print(f"NIFTI value range: [{nii_data.min():.2f}, {nii_data.max():.2f}]")
+        
+        # Find and sort reference DICOMs
+        ref_dicoms = sorted(
+            glob.glob(os.path.join(original_dicom_dir, "**", "*.dcm"), recursive=True)
+        )
+        
+        if not ref_dicoms:
+            raise FileNotFoundError(f"No reference DICOMs found under {original_dicom_dir}")
+        
+        # Load reference DICOMs
+        ref_datasets = []
+        for dcm_file in ref_dicoms:
+            try:
+                ds = pydicom.dcmread(dcm_file)
+                if hasattr(ds, 'ImagePositionPatient') and hasattr(ds, 'InstanceNumber'):
+                    ref_datasets.append(ds)
+            except Exception as e:
+                print(f"Warning: Could not read {dcm_file}: {e}")
+        
+        if not ref_datasets:
+            raise ValueError("No valid reference DICOMs with spatial information found")
+        
+        # Sort by instance number
+        ref_datasets.sort(key=lambda x: int(x.InstanceNumber))
+        ref_ds = ref_datasets[0]
+        
+        print(f"Reference DICOM shape: {ref_ds.Rows} x {ref_ds.Columns}")
+        print(f"Reference DICOM BitsStored: {ref_ds.BitsStored}")
+        
+        # Get original DICOM intensity range
+        ref_pixel_array = ref_ds.pixel_array
+        ref_min = ref_pixel_array.min()
+        ref_max = ref_pixel_array.max()
+        print(f"Reference DICOM value range: [{ref_min}, {ref_max}]")
+        
+        # Check if resampling is needed
+        target_rows = ref_ds.Rows
+        target_cols = ref_ds.Columns
+        
+        needs_resampling = (nii_data.shape[0] != target_rows or 
+                           nii_data.shape[1] != target_cols)
+        
+        if needs_resampling:
+            print(f"⚠️  Resolution mismatch detected!")
+            print(f"   NIFTI: {nii_data.shape[0]}x{nii_data.shape[1]}")
+            print(f"   Target: {target_rows}x{target_cols}")
+            print(f"   Resampling to match original resolution...")
+        
+        # Extract spatial parameters
+        pixel_spacing = list(map(float, ref_ds.PixelSpacing))
+        
+        if len(ref_datasets) > 1:
+            pos1 = np.array(ref_datasets[0].ImagePositionPatient, dtype=float)
+            pos2 = np.array(ref_datasets[1].ImagePositionPatient, dtype=float)
+            slice_spacing = float(np.linalg.norm(pos2 - pos1))
+        else:
+            slice_spacing = float(getattr(ref_ds, 'SliceThickness', 1.0))
+        
+        image_orientation = list(map(float, ref_ds.ImageOrientationPatient))
+        row_cosines = np.array(image_orientation[:3])
+        col_cosines = np.array(image_orientation[3:])
+        slice_cosines = np.cross(row_cosines, col_cosines)
+        start_position = np.array(ref_ds.ImagePositionPatient, dtype=float)
+        
+        # Determine bit depth from reference
+        bits_stored = ref_ds.BitsStored
+        max_value = (2 ** bits_stored) - 1
+        
+        print(f"Using {bits_stored}-bit depth (max value: {max_value})")
+        
+        # Get number of slices
+        num_slices = nii_data.shape[2]
+        print(f"Converting {num_slices} slices...")
+        
+        # Generate new UIDs
+        new_study_uid = ref_ds.StudyInstanceUID
+        new_series_uid = pydicom.uid.generate_uid()
+        
+        # Determine rescale parameters from original data
+        # Get window center/width if available
+        window_center = float(getattr(ref_ds, 'WindowCenter', 0))
+        window_width = float(getattr(ref_ds, 'WindowWidth', max_value))
+        rescale_intercept = float(getattr(ref_ds, 'RescaleIntercept', 0))
+        rescale_slope = float(getattr(ref_ds, 'RescaleSlope', 1))
+        
+        print(f"Original display window: Center={window_center}, Width={window_width}")
+        print(f"Original rescale: Slope={rescale_slope}, Intercept={rescale_intercept}")
+        
+        for slice_idx in range(num_slices):
+            # Create new DICOM from reference
+            new_ds = ref_ds.copy()
+            
+            # Extract slice data
+            slice_data = nii_data[:, :, slice_idx].copy()
+            
+            # Resample if needed (use order=1 for bilinear, order=3 for bicubic)
+            if needs_resampling:
+                slice_data = transform.resize(
+                    slice_data, 
+                    (target_rows, target_cols),
+                    order=3,  # bicubic interpolation for better quality
+                    mode='edge',
+                    preserve_range=True,
+                    anti_aliasing=True
+                )
+            
+            # Preserve intensity range - DO NOT normalize to full bit depth
+            # This maintains the contrast of the masked brain
+            slice_min = nii_data.min()  # Use global min/max from entire volume
+            slice_max = nii_data.max()
+            
+            if slice_max > slice_min:
+                # Map to same range as original DICOM
+                # This preserves relative intensities
+                slice_normalized = ((slice_data - slice_min) / (slice_max - slice_min) * 
+                                  (ref_max - ref_min) + ref_min)
+                slice_normalized = np.clip(slice_normalized, 0, max_value).astype(np.uint16)
+            else:
+                slice_normalized = np.zeros_like(slice_data, dtype=np.uint16)
+            
+            # Update pixel data
+            new_ds.PixelData = slice_normalized.tobytes()
+            
+            # Update image dimensions
+            new_ds.Rows = slice_normalized.shape[0]
+            new_ds.Columns = slice_normalized.shape[1]
+            new_ds.BitsAllocated = 16
+            new_ds.BitsStored = bits_stored
+            new_ds.HighBit = bits_stored - 1
+            new_ds.SamplesPerPixel = 1
+            new_ds.PhotometricInterpretation = "MONOCHROME2"
+            new_ds.PixelRepresentation = 0
+            
+            # Preserve rescale parameters
+            new_ds.RescaleIntercept = rescale_intercept
+            new_ds.RescaleSlope = rescale_slope
+            
+            # Preserve window settings for consistent display
+            new_ds.WindowCenter = window_center
+            new_ds.WindowWidth = window_width
+            
+            # Update spatial positioning metadata
+            slice_position = start_position + (slice_spacing * slice_idx * slice_cosines)
+            new_ds.ImagePositionPatient = [f"{x:.6f}" for x in slice_position]
+            new_ds.SliceLocation = f"{slice_spacing * slice_idx:.6f}"
+            new_ds.ImageOrientationPatient = [f"{x:.6f}" for x in image_orientation]
+            new_ds.PixelSpacing = [f"{x:.6f}" for x in pixel_spacing]
+            new_ds.SliceThickness = f"{slice_spacing:.6f}"
+            new_ds.SpacingBetweenSlices = f"{slice_spacing:.6f}"
+            
+            # Update UIDs
+            new_ds.SeriesInstanceUID = new_series_uid
+            new_ds.SOPInstanceUID = pydicom.uid.generate_uid()
+            new_ds.file_meta.MediaStorageSOPInstanceUID = new_ds.SOPInstanceUID
+            
+            # Update instance number
+            new_ds.InstanceNumber = slice_idx + 1
+            
+            # Update series metadata
+            new_ds.SeriesDescription = "AI Brain Mask - EMERALD"
+            new_ds.SeriesNumber = getattr(ref_ds, 'SeriesNumber', 999) + 1000
+            
+            # Update timestamps
+            now = datetime.now()
+            new_ds.SeriesDate = now.strftime('%Y%m%d')
+            new_ds.SeriesTime = now.strftime('%H%M%S')
+            new_ds.ContentDate = now.strftime('%Y%m%d')
+            new_ds.ContentTime = now.strftime('%H%M%S')
+            
+            # Ensure Transfer Syntax
+            if not hasattr(new_ds.file_meta, 'TransferSyntaxUID'):
+                new_ds.file_meta.TransferSyntaxUID = pydicom.uid.ExplicitVRLittleEndian
+            
+            # Save DICOM
+            output_path = os.path.join(output_dir, f"slice_{slice_idx:04d}.dcm")
+            new_ds.save_as(output_path, write_like_original=False)
+            
+            if slice_idx % 10 == 0:
+                print(f"Processed slice {slice_idx + 1}/{num_slices}")
+        
+        print(f"\n Successfully created {num_slices} DICOM slices in {output_dir}")
+        print(f"Series UID: {new_series_uid}")
+        
+        # Verify first slice
+        verify_ds = pydicom.dcmread(os.path.join(output_dir, "slice_0000.dcm"))
+        verify_array = verify_ds.pixel_array
+        print(f"\nVerification - First slice:")
+        print(f"  Dimensions: {verify_ds.Rows} x {verify_ds.Columns}")
+        print(f"  Value range: [{verify_array.min()}, {verify_array.max()}]")
+        print(f"  Bits Stored: {verify_ds.BitsStored}")
+        print(f"  Window: C={verify_ds.WindowCenter}, W={verify_ds.WindowWidth}")
+        EOF
 
-        out_dir = os.path.join("$(workspaces.shared.path)", "DICOM_RECONVERTED")
-        patient_id = "$(params.patientId)"
-        sop_class_uid = os.environ["SOPClassUID"]
-        print(f"Patching DICOM metadata in {out_dir} for PatientID={patient_id}")
-
-        for root, _, files in os.walk(out_dir):
-            for f in files:
-                if not f.endswith(".dcm"):
-                    continue
-                path = os.path.join(root, f)
-                ds = pydicom.dcmread(path)
-                # Update key metadata fields
-                ds.PatientID = patient_id
-                ds.SOPClassUID = sop_class_uid
-                ds.file_meta.MediaStorageSOPClassUID = sop_class_uid
-                # ds.Modality = "MR"
-                # ds.SeriesInstanceUID = pydicom.uid.generate_uid()
-                # ds.StudyInstanceUID = pydicom.uid.generate_uid()
-                # ds.SeriesNumber = 999  # optional, helps Orthanc group
-                # ds.InstanceNumber = 1
-                ds.PatientName = "AI_Segmentation_Result"
-                ds.SeriesDescription = "AI segmentation of fetal brain"
-                ds.save_as(path)
-        print("Metadata restoration complete.")
+        
+        
 
 ---
 
@@ -324,8 +507,10 @@ spec:
       params:
         - name: patientId
           value: $(params.patientId)
-        - name: SOPClassUID
-          value: $(params.SOPClassUID)
+        - name: studyId
+          value: $(params.studyId)
+        - name: seriesId
+          value: $(params.seriesId)
       workspaces:
         - name: shared
           workspace: shared
@@ -357,43 +542,14 @@ spec:
       params:
         - name: niftiFilename
           value: "$(tasks.convert.results.nifti_filename)"
-        - name: metadataFilename
-          value: "$(tasks.convert.results.metadata_filename)"
         - name: patientId
           value: $(params.patientId)
+        - name: studyId
+          value: $(params.studyId)       
+        - name: seriesId
+          value: $(params.seriesId)    
         - name: SOPClassUID
           value: $(params.SOPClassUID)
       workspaces:
         - name: shared
           workspace: shared
-
-
-# ---
-
-# # PIPELINE RUN
-# apiVersion: tekton.dev/v1
-# kind: PipelineRun
-# metadata:
-#   name: orthanc-to-better-dicom-run
-# spec:
-#   pipelineRef:
-#     name: orthanc-to-better-dicom
-#   params:
-#     - name: orthancUrl
-#       value: "https://orthanc-chris.apps.shift.nerc.mghpcc.org"
-#     - name: orthancAuth
-#       value: "orthanc-720:jennings-minions"
-#     - name: patientId
-#       value: "7c222fb2-927d828a-f22f5921-34e89324-80637c0d"
-#     - name: studyId
-#       value: "37eccdd3-37e25c5f-1bd55640-81525651-e9b5e18b"
-#     - name: seriesId
-#       value: "d06ab3c7-c739be04-509c1388-5381e6c8-7e6e7765"
-#     - name: pattern
-#       value: "DICOM_SAG_MPRAGE_220_FOV_20130308074224_5.nii.gz"
-#     - name: maskSuffix
-#       value: "_mask.nii"
-#   workspaces:
-#     - name: shared
-#       persistentVolumeClaim:
-#         claimName: dicom-pvc
