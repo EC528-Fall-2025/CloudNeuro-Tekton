@@ -1,0 +1,42 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "cloudneuro.fullname" . }}-pipeline-role
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "cloudneuro.labels" . | nindent 4 }}
+rules:
+  # Tekton pipeline permissions
+  - apiGroups: ["tekton.dev"]
+    resources: ["tasks", "pipelines", "pipelineruns", "taskruns"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Pod permissions for pipeline execution
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  # PVC permissions for data access
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "create"]
+  # ConfigMap and Secret permissions
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "cloudneuro.fullname" . }}-pipeline-binding
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "cloudneuro.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "cloudneuro.fullname" . }}-pipeline-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cloudneuro.serviceAccountName" . }}
+    namespace: {{ .Values.global.namespace }}
+{{- end }}
