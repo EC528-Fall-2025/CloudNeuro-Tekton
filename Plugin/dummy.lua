@@ -31,6 +31,14 @@ function OnStoredInstance(instanceId, tags, metadata, origin)
   if origin['RequestOrigin'] == 'Lua' then return end
 
   log("New DICOM instance stored: " .. instanceId)
+  
+  -- Check if this is an AI-processed instance (to prevent loop)
+  local seriesDesc = tags["SeriesDescription"]
+  if seriesDesc and string.find(seriesDesc, "AI Brain Mask") then
+    log("Skipping AI-processed series: " .. seriesDesc)
+    return
+  end
+
   local instance_str = RestApiGet('/instances/' .. instanceId)
   local instance = ParseJson(instance_str)
 
