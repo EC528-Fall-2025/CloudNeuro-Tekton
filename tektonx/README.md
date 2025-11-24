@@ -1,9 +1,54 @@
+# tektonx - Workflow Translation for Clinical Research Pipelines
+
 ## Overview
 
-`tektonx` converts Tekton Tasks / TaskRuns / Pipelines / PipelineRuns into other
-workflow backends using a shared intermediate representation. Today the bundled
-renderers target Bash (default), GNU Make, Snakemake, and a ChRIS plugin
-(`app.py`) skeleton suitable for miniChRIS.
+`tektonx` is a workflow-translation tool that converts **Tekton Tasks / TaskRuns / Pipeline / PipelineRuns** into multiple workflow backends using a shared intermediate representation.
+It currently supports:
+
+- **SLURM**
+- **Sungrid**
+- **GNU Make**
+- **ChRIS**
+- **NextFlow**
+- **Bash**
+
+The goal of `tektonx` is to make clinical research workflow components *portable* across infrastructure boundaries—helping IT/research engineers deploy computational imaging pipelines consistently, whether the execution environment is a local server, HPC cluster, Snakemake-driven lab workflow, or a ChRIS/miniChRIS environment used by clinicians. 
+
+---
+
+
+## Background & Rationale
+
+Modern clinical research teams often build and share pipelines with other teams that do not use the same execution environement. These pipelines must run in **multiple execution environments**:
+
+- Clinicians may run GUI-based ChRIS plugins.  
+- Research engineers may prototype workflows using Snakemake or Make.  
+- DevOps or IT teams may operate Tekton/OpenShift environments inside hospitals.  
+- HPC admins may require SLURM-submit scripts.
+
+This creates fragmentation, duplicated workflow logic, and maintenance burden.
+
+`tektonx` solves this problem by allowing pipeline authors to write **one Tekton YAML definition**, then convert it to the execution backend their infrastructure requires.  
+This provides:
+
+- Consistent execution semantics  
+- Reproducible builds  
+- Clear separation between **workflow definition** and **runtime environment**  
+- Easier QA and validation for clinically relevant pipelines  
+
+---
+
+## Intended Audience
+
+**Primary users:**  
+IT specialists, DevOps engineers, research engineers, lab technologists, and HPC administrators supporting clinical imaging workflows.
+
+**Secondary users:**  
+Clinicians using ChRIS applications that were generated or supported via `tektonx`.
+
+This tool assumes familiarity with containers and basic workflow concepts, but **no Tekton expertise is required**.
+
+---
 
 ## Prerequisites
 
@@ -48,8 +93,9 @@ From the `tektonx/` directory, run:
 ```bash
 uv run python -m tektonx.cli convert <tekton-yaml> --target <bash|make|snakemake>
 ```
+---
 
-Examples:
+## Examples:
 
 ```bash
 # Default bash renderer
@@ -92,3 +138,28 @@ chmod +x dist/hello.sh
 kind plus an error case. See [`examples/README.md`](examples/README.md) for a
 table of files and suggested commands (bash/make/snakemake) to validate parser
 and renderer behavior.
+
+## Project Scope & Roadmap
+**Implemented**
+- Tekton → Bash
+- Tekton → Make
+- Tekton → Snakemake
+- Tekton → ChRIS (miniChRIS)
+- Tekton → SLURM
+- Tekton → Sungrid
+
+**In Progress**
+- Experimental reverse translation: Snakemake → Intermediate Representation → Tekton
+
+## Software License
+This project is released under the MIT License.
+
+You may freely:
+- Use
+- Modify
+- Distribute
+- Incorporate into commercial or non-commercial medical research workflows
+
+### Disclaimer
+`tektonx` is not a medical device and does not perform diagnostic or clinical functions.
+Compliance with local regulatory or institutional requirements is the responsibility of the deploying organization.
