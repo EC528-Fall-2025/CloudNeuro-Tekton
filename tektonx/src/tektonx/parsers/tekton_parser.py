@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Sequence
 
 import yaml
 
@@ -14,25 +14,31 @@ class TektonParseError(Exception):
 def parse_tekton_yaml(tekton_yaml: str) -> Workflow:
     """Parse Tekton YAML (Task/TaskRun/Pipeline/PipelineRun) into the IR."""
     try:
-        document = yaml.safe_load(tekton_yaml) or {}
+        documents = [doc for doc in yaml.safe_load_all(tekton_yaml) if doc]
     except yaml.YAMLError as exc:
         raise TektonParseError("Invalid YAML") from exc
 
-    if not isinstance(document, dict):
+    if not documents:
         raise TektonParseError("Tekton document must be a mapping")
 
-    api_version = str(document.get("apiVersion") or "")
+    primary = _select_primary_doc(documents)
+    if primary is None or not isinstance(primary, dict):
+        raise TektonParseError("Tekton document must be a mapping")
+
+    api_version = str(primary.get("apiVersion") or "")
     if not api_version.startswith("tekton.dev/"):
         raise TektonParseError("Unsupported apiVersion")
 
-    kind = str(document.get("kind") or "")
-    metadata = document.get("metadata") or {}
+    kind = str(primary.get("kind") or "")
+    metadata = primary.get("metadata") or {}
     workflow_name = str(metadata.get("name") or "unnamed")
 
+    task_catalog = _catalog_tasks(documents)
+
     if kind in {"Task", "TaskRun"}:
-        tasks = [_parse_task_like(document)]
+        tasks = [_parse_task_like(primary)]
     elif kind in {"Pipeline", "PipelineRun"}:
-        tasks = _parse_pipeline_like(document)
+        tasks = _parse_pipeline_like(primary, task_catalog)
     else:
         raise TektonParseError(f"Unsupported Tekton kind: {kind}")
 
@@ -40,6 +46,33 @@ def parse_tekton_yaml(tekton_yaml: str) -> Workflow:
         raise TektonParseError("No tasks extracted from Tekton document")
 
     return Workflow(name=workflow_name, tasks=tasks, metadata=dict(metadata))
+
+
+def _select_primary_doc(documents: Sequence[object]) -> Dict[str, Any] | None:
+    """Pick the primary Tekton document to parse."""
+    for doc in documents:
+        if isinstance(doc, dict) and str(doc.get("kind") or "") in {"Pipeline", "PipelineRun"}:
+            return doc
+    for doc in documents:
+        if isinstance(doc, dict):
+            return doc
+    return None
+
+
+def _catalog_tasks(documents: Sequence[object]) -> Dict[str, Dict[str, Any]]:
+    """Build a lookup of Task definitions by name for inlining taskRefs."""
+    tasks: Dict[str, Dict[str, Any]] = {}
+    for doc in documents:
+        if not isinstance(doc, dict):
+            continue
+        kind = str(doc.get("kind") or "")
+        if kind != "Task":
+            continue
+        md = doc.get("metadata") or {}
+        name = str(md.get("name") or "")
+        if name:
+            tasks[name] = doc
+    return tasks
 
 
 def _parse_task_like(document: Dict[str, Any]) -> Task:
@@ -75,7 +108,7 @@ def _parse_task_like(document: Dict[str, Any]) -> Task:
     return Task(name=task_name, steps=steps)
 
 
-def _parse_pipeline_like(document: Dict[str, Any]) -> List[Task]:
+def _parse_pipeline_like(document: Dict[str, Any], task_catalog: Dict[str, Dict[str, Any]]) -> List[Task]:
     """Convert a Tekton Pipeline/PipelineRun into IR Tasks."""
     if document.get("kind") == "PipelineRun":
         spec = (document.get("spec") or {}).get("pipelineSpec") or {}
@@ -95,15 +128,18 @@ def _parse_pipeline_like(document: Dict[str, Any]) -> List[Task]:
         elif "taskRef" in task_def:
             ref = task_def.get("taskRef") or {}
             ref_name = ref.get("name") or "referenced-task"
-            steps = [
-                Step(
-                    name=f"reference-{ref_name}",
-                    script=(
-                        'echo "This task references Tekton Task '
-                        f'{ref_name}. Inline its spec before rendering."'
-                    ),
-                )
-            ]
+            if ref_name in task_catalog:
+                steps = _steps_from_task_doc(task_catalog[ref_name])
+            else:
+                steps = [
+                    Step(
+                        name=f"reference-{ref_name}",
+                        script=(
+                            'echo "This task references Tekton Task '
+                            f'{ref_name}. Inline its spec before rendering."'
+                        ),
+                    )
+                ]
         else:
             steps = []
 
@@ -144,6 +180,11 @@ def _parse_steps(step_defs: List[Dict[str, Any]]) -> List[Step]:
             )
         )
     return steps
+
+
+def _steps_from_task_doc(task_doc: Dict[str, Any]) -> List[Step]:
+    spec = task_doc.get("spec") or {}
+    return _parse_steps(spec.get("steps") or [])
 
 
 def _ensure_list(value: Any) -> List[str]:

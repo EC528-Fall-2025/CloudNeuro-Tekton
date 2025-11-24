@@ -106,6 +106,9 @@ uv run python -m tektonx.cli convert examples/taskrun-complete.yaml --target mak
 
 # Snakemake
 uv run python -m tektonx.cli convert examples/pipeline-complete.yaml --target snakemake
+
+# ChRIS plugin (writes app.py that runs steps sequentially in one container)
+uv run python -m tektonx.cli convert examples/task-complete.yaml --target chris --out dist/app.py
 ```
 
 > **Note:** If you invoke the CLI without the `convert` subcommand (legacy mode),
@@ -122,6 +125,12 @@ uv run python -m tektonx.cli convert examples/hello-task.yaml --target bash --ou
 chmod +x dist/hello.sh
 ./dist/hello.sh
 ```
+
+### ChRIS Renderer Notes
+
+- Emits a minimal `app.py` compatible with the [`python-chrisapp-template`](https://github.com/FNNDSC/python-chrisapp-template).
+- Steps run sequentially inside one container (miniChRIS-friendly); Tekton step images are logged but not pulled.
+- The plugin writes `workflow_report.json` to the output directory summarizing successes/failures.
 
 ## Example Inputs / Tests
 
