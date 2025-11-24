@@ -452,6 +452,74 @@ spec:
 
 ---
 
+# TASK 5: Upload processed DICOM back to Orthanc
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: upload-to-orthanc
+spec:
+  params:
+    - name: orthancUrl
+      type: string
+    - name: orthancAuth
+      type: string
+    - name: seriesId
+      type: string
+      description: "Original series ID (for tagging)"
+  workspaces:
+    - name: shared
+  steps:
+    - name: upload
+      image: curlimages/curl:8.7.1
+      script: |
+        #!/bin/sh
+        set -eux
+        
+        DICOM_DIR="$(workspaces.shared.path)/DICOM_RECONVERTED"
+        
+        echo "Uploading processed DICOMs to Orthanc..."
+        
+        # Count total files
+        TOTAL=$(find "${DICOM_DIR}" -type f -name "*.dcm" | wc -l)
+        echo "Found ${TOTAL} DICOM files to upload"
+        
+        COUNT=0
+        for dcm_file in "${DICOM_DIR}"/*.dcm; do
+          if [ -f "$dcm_file" ]; then
+            COUNT=$((COUNT + 1))
+            
+            # Add custom metadata to mark as processed
+            # This prevents triggering another pipeline run
+            curl -s -u "$(params.orthancAuth)" \
+              -X POST \
+              -H "Content-Type: application/dicom" \
+              --data-binary "@${dcm_file}" \
+              "$(params.orthancUrl)/instances" \
+              -o /tmp/upload_response.json
+            
+            # Tag the uploaded instance with metadata indicating it's processed
+            INSTANCE_ID=$(cat /tmp/upload_response.json | grep -o '"ID"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
+            
+            if [ -n "$INSTANCE_ID" ]; then
+              # Mark as AI-processed to prevent re-triggering
+              curl -s -u "$(params.orthancAuth)" \
+                -X PUT \
+                -H "Content-Type: text/plain" \
+                -d "EMERALD-Processed-$(params.seriesId)" \
+                "$(params.orthancUrl)/instances/${INSTANCE_ID}/metadata/1234"
+              
+              if [ $((COUNT % 10)) -eq 0 ]; then
+                echo "Uploaded ${COUNT}/${TOTAL} files..."
+              fi
+            fi
+          fi
+        done
+        
+        echo "Successfully uploaded ${COUNT} DICOM files to Orthanc"
+        echo "New AI-processed series created"
+
+---
+
 # PIPELINE: download -> pl-dcm2niix -> pl-emerald
 apiVersion: tekton.dev/v1
 kind: Pipeline
@@ -550,6 +618,21 @@ spec:
           value: $(params.seriesId)    
         - name: SOPClassUID
           value: $(params.SOPClassUID)
+      workspaces:
+        - name: shared
+          workspace: shared
+    
+    - name: upload
+      runAfter: [nifti2dicom]
+      taskRef:
+        name: upload-to-orthanc
+      params:
+        - name: orthancUrl
+          value: $(params.orthancUrl)
+        - name: orthancAuth
+          value: $(params.orthancAuth)
+        - name: seriesId
+          value: $(params.seriesId)
       workspaces:
         - name: shared
           workspace: shared
