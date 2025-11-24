@@ -1,58 +1,73 @@
-# Orthanc Tekton Plugin Setup
+# Orthanc-Tekton  Plugin Setup
+## Overview
 
-This guide explains how to set up the Orthanc plugin with Tekton pipelines to automatically process new DICOM series.
+This folder enables automatic processing of a new DICOM series using **Orthanc** (a lightweight DICOM server) and **Tekton Pipelines** on Kubernetes/OpenShift. When clinicians upload new imaging studies to Orthanc, the system automatically triggers a Tekton *PipelineRun* that processes the series (e.g., routing data to a downstream tool like PL-Emerald, performing conversions, running models, or preparing data for analysis).
+
+Additionally, it provides a guide walking through:
+- Deploying Orthanc via Helm
+- Applying your Tekton pipeline
+- Installing Lua automation logic
+- Triggering PipelineRuns on new DICOM uploads
+- Verifying and debugging your setup
+
+This tooling is intended for **medical IT support staff or research engineers** deploying pipeline automation in a clinical research environment. Clinicians use Orthanc normally; this plugin enhances the system behind the scenes.
 
 ---
+
+## Purpose and Rationale
+Clinical research teams often manage growing volumes of imaging data. Manual exporting, converting, and routing of DICOM series is error‑prone, time‑consuming, and difficult to scale.
+
+This integration provides:
+- Hands‑free automation whenever new data arrives
+- **Reproducible, containerized processing** using Tekton
+- Clear separation of clinical workflow (Orthanc) and computational workflow (Kubernetes)
+- **Extensibility**: Lua scripts in Orthanc can define custom triggers, metadata filters, and workflow logic
+
+The goal is to create a **hands‑free, reproducible workflow** in which Orthanc automatically triggers a Tekton pipeline whenever a clinician uploads new imaging data.
 
 ## Prerequisites
+Before installation, ensure the following tools are available in your environment:
+- A Kubernetes or OpenShift cluster
+- `kubectl` and/or `oc` CLI configured
+- Helm installed
+- A working Orthanc image or Helm deployment
+- Access permissions to create ConfigMaps, deployments, and Tekton resources
 
-- Kubernetes cluster with `kubectl` and `oc` configured  
-- Helm installed  
-- Orthanc image or deployment ready  
+Namespace used in examples: `chris-students-c9344e`.
 
----
+--- 
 
 ## 1. Deploy Orthanc via Helm
+**Recommendation**
+Edit `helm-orthanc.sh` before running it. Customize the release name and rout do your deployment does not conflict with others.
 
-Run the deployment script:
-
+Deploy Orthanc by running:
 ```
 ./helm-orthanc.sh
 ```
 
-After this, a pod named km-test-orthanc-xxxxxxxxxx-xxxxx will be created.
+After this, a pod similar to the following naming convention will be created:
+```
+orthanc-xxxxxxxxxx-xxxxx
+```
 
 Verify the pod:
 ```
-kubectl get pods -n chris-students-c9344e
+oc get pods -n chris-students-c9344e
 ```
+Once the pod is running, Orthanc is ready.
+
 --- 
 
-## 2. Create ConfigMap with Lua Script
-
-Upload the dummy.lua script to a ConfigMap:
-
+## 2. Apply the Tekton Pipeline
+Apply the pipeline definition:
 ```
-kubectl create configmap orthanc-scripts \
-  --from-file=dummy.lua=./dummy.lua \
-  -n chris-students-c9344e \
-  --dry-run=client -o yaml | kubectl apply -f -
+oc apply -f tekton.yaml
 ```
-
-> **Note:** If changes don’t take effect, delete the Orthanc pod and check pods again:
-
-```
-kubectl delete pod <pod-name> -n chris-students-c9344e
-kubectl get pods -n chris-students-c9344e
-```
-
----
-
-## 3. Apply Tekton Pipeline
 
 Check if anything is already running (optional if starting from scratch):
 ```
-kubectl get pipelineruns -n chris-students-c9344e
+oc get pipelineruns -n chris-students-c9344e
 ```
 
 You may see entries like:
@@ -67,34 +82,43 @@ kubectl delete pipelinerun <pipelinerun-name> -n chris-students-c9344e
 kubectl get pods -n chris-students-c9344e
 kubectl delete pod <pipelinerun-pod-name> -n chris-students-c9344e
 ```
+
 ---
 
-Apply the Tekton pipeline definition:
-```
-oc apply -f tekton.yaml
-```
+### 3. Create ConfigMap With Lua Trigger Script
+Your Lua script (e.g., `dummy.lua`) defines how Orthanc responds when a new DICOM instance is stored.
 
-Verify the pipeline run:
-```
-kubectl get pipelineruns -n chris-students-c9344e
-```
-
-Wait until the pipeline status shows Succeeded.
+Create or update the ConfigMap:
 
 ```
-NAME                           SUCCEEDED   REASON      STARTTIME   COMPLETIONTIME
-orthanc-to-emerald-run         True        Succeeded   5m          3m
+oc create configmap orthanc-scripts \
+  --from-file=dummy.lua=./dummy.lua \
+  -n chris-students-c9344e \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
 
---- 
+> **Note:** If changes don’t take effect, delete the Orthanc pod and check pods again:
+
+```
+oc delete pod <pod-name> -n chris-students-c9344e
+oc get pods -n chris-students-c9344e
+```
+Orthanc will automatically reload the script on pod restart.
+
+---
+
 
 ## 4. Test the Setup
 
 **Test 1**: Upload a DICOM series to Orthanc.
 
+Upload via:
+- Orthanc Web UI
+- Orthanc REST API
+
 **Test 2**: Check the logs of the Orthanc pod to see if the pipeline is triggered:
 ```
-kubectl logs -f <pod-name> -n chris-students-c9344e
+oc logs -f <pod-name> -n chris-students-c9344e
 ```
 
 Log should show something like:
@@ -175,3 +199,5 @@ kubectl describe taskrun <task-pod-name (i.e.orthanc-to-emerald-run-emerald)> -n
 
 This can help diagnose failures or misconfigurations.
 
+## Software License
+This project is provided under the MIT License, allowing broad reuse, modification, and integration into research and clinical pipeline environments.
