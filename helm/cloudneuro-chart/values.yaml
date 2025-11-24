@@ -1,0 +1,114 @@
+# Global settings
+global:
+  namespace: cloudneuro
+
+# Orthanc PACS configuration
+orthanc:
+  enabled: true
+  image:
+    repository: orthancteam/orthanc
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8042
+    dicomPort: 4242
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+# Tekton Pipeline configuration
+tekton:
+  enabled: true
+  # Tekton Pipelines Operator should be pre-installed on OpenShift
+  pipelines:
+    # FreeSurfer pipeline
+    freesurfer:
+      enabled: true
+      image: freesurfer/freesurfer:7.4.1
+      resources:
+        requests:
+          memory: "4Gi"
+          cpu: "2000m"
+        limits:
+          memory: "16Gi"
+          cpu: "8000m"
+    
+    # Additional pipelines can be added here
+    # Example:
+    # fsl:
+    #   enabled: false
+    #   image: fsl/fsl:latest
+
+# Storage configuration
+storage:
+  # PVC for input data
+  input:
+    size: 20Gi
+    storageClass: ""
+    accessMode: ReadWriteMany
+  
+  # PVC for output data
+  output:
+    size: 50Gi
+    storageClass: ""
+    accessMode: ReadWriteMany
+  
+  # PVC for cache/temporary data
+  cache:
+    size: 30Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+
+# ServiceAccount for Tekton pipelines
+serviceAccount:
+  create: true
+  name: cloudneuro-pipeline-sa
+  annotations: {}
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Web UI (Branch A) - Optional
+webui:
+  enabled: false
+  image:
+    repository: your-registry/cloudneuro-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: true
+    className: ""
+    annotations: {}
+    hosts:
+      - host: cloudneuro.local
+        paths:
+          - path: /
+            pathType: Prefix
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# Monitoring and logging
+monitoring:
+  enabled: false
+  prometheus:
+    enabled: false
+  grafana:
+    enabled: false
