@@ -1,4 +1,4 @@
-# Orthanc-Tekton  Plugin Setup
+# Orthanc-Tekton Plugin Setup
 ## Overview
 
 This folder enables automatic processing of a new DICOM series using **Orthanc** (a lightweight DICOM server) and **Tekton Pipelines** on Kubernetes/OpenShift. When clinicians upload new imaging studies to Orthanc, the system automatically triggers a Tekton *PipelineRun* that processes the series (e.g., routing data to a downstream tool like PL-Emerald, performing conversions, running models, or preparing data for analysis).
@@ -39,7 +39,7 @@ Namespace used in examples: `chris-students-c9344e`.
 
 ## 1. Deploy Orthanc via Helm
 **Recommendation**
-Edit `helm-orthanc.sh` before running it. Customize the release name and rout do your deployment does not conflict with others.
+Edit `helm-orthanc.sh` before running it. Customize the release name and route so your deployment does not conflict with others.
 
 Deploy Orthanc by running:
 ```
@@ -85,7 +85,7 @@ kubectl delete pod <pipelinerun-pod-name> -n chris-students-c9344e
 
 ---
 
-### 3. Create ConfigMap With Lua Trigger Script
+## 3. Create ConfigMap With Lua Trigger Script
 Your Lua script (e.g., `dummy.lua`) defines how Orthanc responds when a new DICOM instance is stored.
 
 Create or update the ConfigMap:
