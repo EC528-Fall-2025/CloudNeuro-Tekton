@@ -1,0 +1,45 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: dag-split-merge
+spec:
+  tasks:
+    - name: fetch
+      taskSpec:
+        steps:
+          - name: fetch-step
+            script: |
+              #!/bin/sh
+              set -eux
+              echo "fetching data" > "$WORKDIR/fetch.txt"
+
+    - name: preprocess-a
+      runAfter: [fetch]
+      taskSpec:
+        steps:
+          - name: prep-a
+            script: |
+              #!/bin/sh
+              set -eux
+              echo "A from $(cat "$WORKDIR/fetch.txt")" > "$WORKDIR/a.out"
+
+    - name: preprocess-b
+      runAfter: [fetch]
+      taskSpec:
+        steps:
+          - name: prep-b
+            script: |
+              #!/bin/sh
+              set -eux
+              echo "B from $(cat "$WORKDIR/fetch.txt")" > "$WORKDIR/b.out"
+
+    - name: combine
+      runAfter: [preprocess-a, preprocess-b]
+      taskSpec:
+        steps:
+          - name: merge
+            script: |
+              #!/bin/sh
+              set -eux
+              paste "$WORKDIR/a.out" "$WORKDIR/b.out" > "$WORKDIR/combined.txt"
+              echo "combined done: $(cat "$WORKDIR/combined.txt")"
