@@ -1,0 +1,10 @@
+{
+   "Details" : "Missing resource while creating an archive: <put-series-id>",
+   "HttpError" : "Not Found",
+   "HttpStatus" : 404,
+   "Message" : "Accessing an inexistent item",
+   "Method" : "GET",
+   "OrthancError" : "Accessing an inexistent item",
+   "OrthancStatus" : 7,
+   "Uri" : "/series/<put-series-id>/archive"
+}

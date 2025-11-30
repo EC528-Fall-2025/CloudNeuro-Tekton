@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import json
 import textwrap
-from typing import Dict
+from typing import Dict, List, Tuple
 
 from tektonx.ir import Workflow
 
@@ -13,14 +15,14 @@ def render(workflow: Workflow) -> str:
 
 def _plugin_template(name: str, workflow_payload: Dict[str, object]) -> str:
     workflow_json = json.dumps(workflow_payload, indent=4)
-    template = """#!/usr/bin/env python
-\"\"\"ChRIS plugin auto-generated from Tekton workflow '__WORKFLOW_NAME__'.
+    template = '''#!/usr/bin/env python
+"""ChRIS plugin auto-generated from Tekton workflow '__WORKFLOW_NAME__'.
 
 Limitations for miniChRIS:
 - All Tekton steps run inside a single plugin container.
 - Original Tekton step images are reported for review only.
 - Ensure the container bundles the tools needed by each step.
-\"\"\"
+"""
 
 import argparse
 import json
@@ -29,18 +31,18 @@ import subprocess
 import sys
 from pathlib import Path
 from textwrap import dedent
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from chris_plugin import chris_plugin
 
 __version__ = "0.1.0"
 
-WORKFLOW: Dict[str, object] = json.loads(r\"\"\"__WORKFLOW_JSON__\"\"\")
+WORKFLOW: Dict[str, object] = json.loads(r"""__WORKFLOW_JSON__""")
 
 parser = argparse.ArgumentParser(
     description=dedent(
-        \"\"\"Run the Tekton workflow '__WORKFLOW_NAME__' sequentially inside a ChRIS plugin.
-Tekton images are not pulled; commands run in this container.\"\"\"
+        """Run the Tekton workflow '__WORKFLOW_NAME__' (DAG) inside a ChRIS plugin.
+Tekton images are not pulled; commands run in this container."""
     ),
 )
 parser.add_argument(
@@ -67,6 +69,7 @@ def main(options: argparse.Namespace, inputdir: Path, outputdir: Path) -> None:
     workspace = Path(options.workdir or outputdir)
     workspace.mkdir(parents=True, exist_ok=True)
     env = _base_env(options, inputdir, outputdir)
+    _write_dag_artifacts(outputdir, WORKFLOW.get("tasks", []))
     report: Dict[str, object] = {
         "workflow": WORKFLOW.get("name", "__WORKFLOW_NAME__"),
         "metadata": WORKFLOW.get("metadata", {}),
@@ -123,6 +126,31 @@ def _ordered_tasks(tasks: List[Dict[str, object]]):
             raise RuntimeError(
                 f"Unresolvable or cyclic dependencies across tasks: {unresolved}"
             )
+
+
+def _write_dag_artifacts(outputdir: Path, tasks: List[Dict[str, object]]) -> None:
+    """Persist DAG nodes/edges to JSON and DOT for debugging."""
+    nodes = [t.get("name") for t in tasks if t.get("name")]
+    edges: List[Tuple[str, str]] = []
+    for t in tasks:
+        src = t.get("name")
+        if not src:
+            continue
+        for dep in t.get("run_after", []) or []:
+            edges.append((dep, src))
+
+    graph = {"nodes": nodes, "edges": [{"from": a, "to": b} for a, b in edges]}
+    outputdir.mkdir(parents=True, exist_ok=True)
+    (outputdir / "dag.json").write_text(json.dumps(graph, indent=2))
+
+    dot_lines = ["digraph workflow {"]
+    for node in nodes:
+        dot_lines.append(f'  "{node}";')
+    for a, b in edges:
+        dot_lines.append(f'  "{a}" -> "{b}";')
+    dot_lines.append("}")
+    dot_content = "\\n".join(dot_lines)
+    (outputdir / "dag.dot").write_text(dot_content)
 
 
 def _run_task(
@@ -194,7 +222,7 @@ if __name__ == "__main__":
     except RuntimeError as exc:
         sys.stderr.write(f"Workflow failed: {exc}\\n")
         sys.exit(1)
-"""
+'''
     return (
         textwrap.dedent(template)
         .replace("__WORKFLOW_NAME__", name)

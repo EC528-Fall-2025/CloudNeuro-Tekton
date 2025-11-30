@@ -109,6 +109,9 @@ uv run python -m tektonx.cli convert examples/pipeline-complete.yaml --target sn
 
 # ChRIS plugin (writes app.py that runs steps sequentially in one container)
 uv run python -m tektonx.cli convert examples/task-complete.yaml --target chris --out dist/app.py
+
+# ChRIS plugin with a simple DAG (fan-out/fan-in)
+uv run python -m tektonx.cli convert examples/pipeline-dag.yaml --target chris --out dist/dag_app.py
 ```
 
 > **Note:** If you invoke the CLI without the `convert` subcommand (legacy mode),
@@ -131,6 +134,7 @@ chmod +x dist/hello.sh
 - Emits a minimal `app.py` compatible with the [`python-chrisapp-template`](https://github.com/FNNDSC/python-chrisapp-template).
 - Steps run sequentially inside one container (miniChRIS-friendly); Tekton step images are logged but not pulled.
 - The plugin writes `workflow_report.json` to the output directory summarizing successes/failures.
+- DAG metadata is emitted to `dag.json` and `dag.dot` (Graphviz) alongside the report.
 
 ## Example Inputs / Tests
 
