@@ -33,7 +33,25 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Dict, List, Tuple
 
-from chris_plugin import chris_plugin
+try:
+    from chris_plugin import chris_plugin
+except ModuleNotFoundError:
+    # Lightweight shim so the generated runner can execute without the dependency.
+    def chris_plugin(**kwargs):  # type: ignore
+        def decorator(func):
+            def wrapper():
+                parser = kwargs.get("parser") or argparse.ArgumentParser()
+                parser.add_argument("inputdir", type=Path)
+                parser.add_argument("outputdir", type=Path)
+                sys.stderr.write(
+                    "Using built-in chris_plugin shim; install 'chris_plugin' for full functionality.\\n"
+                )
+                args = parser.parse_args()
+                return func(args, args.inputdir, args.outputdir)
+
+            return wrapper
+
+        return decorator
 
 __version__ = "0.1.0"
 

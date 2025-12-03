@@ -6,9 +6,10 @@ import typer
 from rich import print
 
 from tektonx.converter import ConversionError, convert
+from tektonx.parsers import PARSERS
 from tektonx.renderers import RENDERERS
 
-app = typer.Typer(help="Convert Tekton resources to multiple workflow formats.")
+app = typer.Typer(help="Convert Tekton/Argo/Nextflow resources to multiple workflow formats.")
 
 
 @app.command(name="convert")
@@ -21,11 +22,17 @@ def convert_command(
         "-t",
         help=f"Renderer to use ({', '.join(sorted(RENDERERS))})",
     ),
+    source: str = typer.Option(
+        "tekton",
+        "--source",
+        "-s",
+        help=f"Input format ({', '.join(sorted(PARSERS))})",
+    ),
 ):
-    """Read Tekton YAML and emit the selected workflow backend."""
+    """Read workflow YAML and emit the selected backend."""
     try:
         data = input.read_text()
-        artifact = convert(data, target=target.lower())
+        artifact = convert(data, target=target.lower(), source=source.lower())
     except ConversionError as e:
         print(f"[red]Conversion failed:[/red] {e}")
         raise typer.Exit(code=2)

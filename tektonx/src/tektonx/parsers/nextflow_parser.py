@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict
 
 import yaml
 
@@ -47,6 +47,7 @@ def _parse_processes(processes: list) -> list[Task]:
             continue
 
         name = str(process.get("name") or f"process{idx+1}")
+        run_after = _dependencies(process)
         
         # Look for script, shell, or exec directive
         script = (
@@ -61,6 +62,18 @@ def _parse_processes(processes: list) -> list[Task]:
         else:
             steps = [Step(name=f"{name}-noop", script='echo "No script defined"')]
 
-        tasks.append(Task(name=name, steps=steps))
+        tasks.append(Task(name=name, steps=steps, run_after=run_after))
 
     return tasks
+
+
+def _dependencies(process: Dict[str, Any]) -> list[str]:
+    """Extract dependencies from a Nextflow process (dependsOn/after)."""
+    deps = process.get("dependsOn") or process.get("after") or []
+    if isinstance(deps, str):
+        # Split simple comma/space separated lists
+        parts = deps.replace(",", " ").split()
+        return [p for p in parts if p]
+    if isinstance(deps, list):
+        return [str(d) for d in deps if d]
+    return []
