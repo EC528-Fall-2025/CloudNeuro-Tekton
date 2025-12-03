@@ -10,7 +10,7 @@ from tektonx.ir import Step, Task, Workflow
 def render(workflow: Workflow) -> str:
     task_names = [task.name for task in workflow.tasks]
     phony_targets = " ".join(["all"] + task_names)
-    lines: List[str] = [f".PHONY: {phony_targets}", ""]
+    lines: List[str] = ["SHELL := bash", f".PHONY: {phony_targets}", ""]
     all_deps = " ".join(task_names)
     lines.append(f"all: {all_deps}".rstrip())
     lines.append("\t@echo \"Completed workflow: {name}\"".format(name=workflow.name))
@@ -36,11 +36,16 @@ def _render_task(task: Task) -> List[str]:
         if step.script:
             task_lines.append(_script_block(step.script))
         else:
-            cmd = _command_line(step)
-            if cmd:
-                task_lines.append(f"\t{_indent_multiline(_escape_make(cmd))}")
+            # If any arg contains newlines, render via inline bash block for safety.
+            if any("\n" in arg for arg in step.args):
+                script_body = "\n".join(step.args)
+                task_lines.append(_heredoc_block(script_body))
             else:
-                task_lines.append('\t@echo "(noop step)"')
+                cmd = _command_line(step)
+                if cmd:
+                    task_lines.append(f"\t{_indent_multiline(_escape_make(cmd))}")
+                else:
+                    task_lines.append('\t@echo "(noop step)"')
     return task_lines
 
 
@@ -64,12 +69,26 @@ def _escape_make(text: str) -> str:
 
 
 def _script_block(script: str) -> str:
-    """Render multi-line scripts as a single bash -lc command."""
+    """Render scripts as a single bash -lc invocation (works on make 3.81)."""
+    return _bash_inline_block(script)
+
+
+def _heredoc_block(content: str) -> str:
+    """Render arbitrary multiline content via a single bash -lc invocation."""
+    return _bash_inline_block(content)
+
+
+def _bash_inline_block(script: str) -> str:
+    """Encode the script for bash -lc using ANSI-C quoting, safe for old make."""
     body = textwrap.dedent(script).strip()
+    if not body:
+        return '\t@echo "(noop step)"'
+
+    # Escape for make expansion, then for bash $'...' ANSI-C quoting.
     make_safe = _escape_make(body)
-    bash_escaped = (
+    ansi_safe = (
         make_safe.replace("\\", "\\\\")
         .replace("'", "\\'")
-        .replace("\n", r"\n")
+        .replace("\n", "\\n")
     )
-    return f"\tbash -lc $$'{bash_escaped}'"
+    return f"\tbash -lc $$'{ansi_safe}'"
