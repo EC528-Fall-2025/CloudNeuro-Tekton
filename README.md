@@ -125,6 +125,14 @@ Avaliable Targets:
     uv run python -m tektonx.cli examples/pipeline-complete.yaml --target wdl --out /tmp/workflow.wdl
     cromwell run /tmp/workflow.wdl
     ```
+    ###### Sungrid
+    ```bash
+    uv run python -m tektonx.cli examples/pipeline-complete.yaml --target sungrind --out /tmp/sge-task.sh
+    ```
+    ###### Slurm
+    ```bash
+    uv run python -m tektonx.cli examples/pipeline-complete.yaml --target slurm --out /tmp/slurm_demo.sh
+    ```
 
 ### Additional Setup Information
 
