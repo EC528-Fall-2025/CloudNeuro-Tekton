@@ -32,8 +32,7 @@ While neuroimaging research produces software tools with the potential to improv
      export JAVA_HOME=$(/usr/libexec/java_home -v 17)
      export PATH="$JAVA_HOME/bin:$PATH"
 
-
-
+     brew install cromwell                                  # install Cromwell
      ```
 
    - Docker (optional) if you build/run the ChRIS container example
