@@ -40,13 +40,13 @@ While neuroimaging research produces software tools with the potential to improv
 
 2. **Clone + env**
    ```bash
-   git clone https://github.com/<your-org>/CloudNeuro-Tekton.git
+   git clone https://github.com/EC528-Fall-2025/CloudNeuro-Tekton
    cd CloudNeuro-Tekton/tektonx
    uv sync
    ```
 
 3. **Convert a Tekton example**
-Targets: 
+Avaliable Targets: 
    - bash
    - make
    - snakemake
@@ -56,8 +56,10 @@ Targets:
    - wdl
    - slurm
    - sungrid
+   
+   The example below uses snakemake.
    ```bash
-   uv run python -m tektonx.cli examples/pipeline-complete.yaml --target make
+   uv run python -m tektonx.cli examples/pipeline-complete.yaml --target snakemake
    ```
 
 4. **Save artifacts (example: Snakemake)**
@@ -65,7 +67,7 @@ Targets:
    uv run python -m tektonx.cli examples/pipeline-complete.yaml --target snakemake --out dist/Snakefile
    ```
 
-5. **Run tests** (bash + snakemake executed; others string-checked)
+5. **Run tests**
    ```bash
    uv run pytest
    ```
@@ -92,7 +94,7 @@ Targets:
     XDG_CACHE_HOME=/tmp TMPDIR=/tmp WORKDIR=/tmp/snake_make_test snakemake -s dist/Snakefile --cores 1
     ```
 
-    ###### ChRIS runner
+    ###### ChRIS
     **Note:** Docker must be running to run this.
     ```bash
     uv run python -m tektonx.cli examples/pipeline-dag.yaml --target chris --out dist/dag_app.py
