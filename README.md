@@ -46,7 +46,17 @@ While neuroimaging research produces software tools with the potential to improv
    uv sync
    ```
 
-3. **Convert a Tekton example** (swap target: bash|make|snakemake|chris|argo|nextflow|wdl|slurm|sungrid)
+3. **Convert a Tekton example**
+Targets: 
+   - bash
+   - make
+   - snakemake
+   - chris
+   - argo
+   - nextflow
+   - wdl
+   - slurm
+   - sungrid
    ```bash
    uv run python -m tektonx.cli examples/pipeline-complete.yaml --target make
    ```
