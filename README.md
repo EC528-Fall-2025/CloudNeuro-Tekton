@@ -10,7 +10,7 @@
 * [Sprint 1 Demo Video](https://youtu.be/uLCBCPnanuE) | [Sprint 1 Slides](https://docs.google.com/presentation/d/1-ALj9ChKAheM6dkttzGoUHoqeJwRiWuEvDUVb_fA2Dg/edit?usp=sharing)
 
 ### Problem Statement
-While neuroimaging research produces software tools with the potential to improve clinical outcomes and reduce physicians’ workload, the inefficiencies in usability and integration hinders the realization of this potential. Existing proprietary automation and AI platforms and prohibitively expensive, often requiring not only steep licensing feeds but also in-house developers to customize them. Even when available, such tools impose steep learning curves and disrupt established clinical routines, leaving busy clinicians unable to adopt them. Usability and seamless integration are therefore essential prerequisites for translating research advances into practice.
+While neuroimaging research produces software tools with the potential to improve clinical outcomes and reduce physicians’ workload, the inefficiencies in usability and integration hinders the realization of this potential. Existing proprietary automation and AI platforms are prohibitively expensive, often requiring not only steep licensing feeds but also in-house developers to customize them. Even when available, such tools impose steep learning curves and disrupt established clinical routines, leaving busy clinicians unable to adopt them. Usability and seamless integration are therefore essential prerequisites for translating research advances into practice.
 
 ## Get Started
 1. **Prereqs**
@@ -318,9 +318,9 @@ Each sprint produces a working release with demonstrable functionality, allowing
 
 | Sprint | Dates           | Goal / Deliverable                                                                                   |
 |--------|-----------------|------------------------------------------------------------------------------------------------------|
-| 0      | Sept 17 – Oct 6 | - Setup + onboarding (NERC account, repo, comms with mentor) <br> - Deploy Orthanc on OpenShift (Oct 1) |
-| 1      | Oct 7 – Oct 22  | - Run a scientific MRI pipeline manually (Oct 8) <br> - Automate pipeline execution with Tekton on OpenShift (Oct 22) |
-| 2      | Oct 23 – Nov 5  | - Minimum goal fully achieved: reproducible end-to-end pipeline run on OpenShift / Tekton <br> - Decide Branch A, Branch B, or group-defined Branch |
-| 3      | Nov 6 – Nov 19  | **Branch Development:** <br> - Branch A → build interface for pipeline execution and monitoring <br> - Branch B → implement Tekton to Argo/SLURM/ChRIS translation prototype <br> - Branch C → TBD |
-| 4      | Nov 20 – Dec 3  | - Extend chosen branch: usability improvements, add outputs/visualizations, test with additional pipelines |
-| 5      | Dec 4 – Dec 10  | - Final polish: documentation, final demonstration preparation, GitHub cleanup, reproducibility check <br> - Deliver final presentation |
+| 1      | Sept 17 – Oct 6 | - Setup + onboarding (NERC account, repo, comms with mentor) <br> - Deploy Orthanc on OpenShift (Oct 1) |
+| 2      | Oct 7 – Oct 22  | - Run a scientific MRI pipeline manually (Oct 8) <br> - Automate pipeline execution with Tekton on OpenShift (Oct 22) |
+| 3      | Oct 23 – Nov 5  | - Minimum goal fully achieved: reproducible end-to-end pipeline run on OpenShift / Tekton <br> - DICOM to NIFTI Conversion |
+| 4      | Nov 6 – Nov 19  | - NIFTI to DICOM conversion integrated with tekton <br> - Implement Tekton to Argo/SLURM/ChRIS translation prototype |
+| 5      | Nov 20 – Dec 3  | - Usability improvements, add outputs/visualizations, test with additional pipelines |
+| Final  | Dec 4 – Dec 10  | - Final polish: documentation, final demonstration preparation, GitHub cleanup, reproducibility check <br> - Deliver final presentation |
