@@ -306,29 +306,32 @@ If the team pursues **Branch A**, a web interface will be added to trigger pipel
 * **Limitations**: The project will not deliver production-ready EMR integration or advanced security features, as the focus is on demonstrating feasibility and workflow integration.
 
 ### 5. Acceptance Criteria
-Our minimum goal (due mid-October) is to demonstrate execution of neuroimaging research software on OpenShift using Tekton Pipelines:
+Our minimum goal is to demonstrate execution of neuroimaging research software on OpenShift using Tekton Pipelines:
 * Orthanc (open-source medical imaging database) is successfully deployed on OpenShift with MRI data being retrieved and passed to the pipeline.
 * A user can upload or access MRI data within the OpenShift environment.
-* A neuroimaging analysis pipeline (e.g., FreeSurfer) can be executed in OpenShift and completed without errors.
+* A neuroimaging analysis pipeline (e.g., *pl-emerald*) can be executed in OpenShift and completed without errors.
 * Running the pipeline produces correct and verifiable outputs (e.g., processed images, segmentation maps, log files).
 * Pipeline execution is automated through Tekton, so the user can trigger analysis with a single command or button.
 
-From this point, our client provided two possible branches. Our client is also open to a team-defined continuation for which our group defines our own direction for this project.
-
-**Branch A - User Platform Execution and Visualization**
-* A user (researcher or clinician) can trigger a pipeline execution through an intuitive user interface (not only via CLI).
-* The interface reports real-time feedback on pipeline status (e.g., pending, running, completed, failed).
-* A user can access the pipeline outputs directly through the interface (logs, downloadable files, or basic visualization).
-* Develop comprehensive onboarding documentation so that a new user can deploy and use the interface without prior system knowledge.
-
-**Branch B - Rosetta Program for Pipeline Translation**
+From this point, our client provided a second goal, developing. Rosetta Stone Translator Program for our pipelines:
 * A user can input a valid Tekton pipeline definition and receive an equivalent definition in at least one alternate workflow language (e.g., Argo, SLURM, or ChRIS YAML).
 * The translated pipeline is syntactically valid and recognized by the target workflow system.
 * At least one example Tekton pipeline from this project has been successfully translated and verified to run (or at least validate) in the target system.
 * Instructions for running the translator are available and understandable by new users without prior knowledge of Tekton or the target system.
 
+We met all of the acceptance criteria for both the minimum goal and extended goal. To summarize:
+
+Minimum goal achievements:
+* Orthanc deployed on OpenShift
+* Tekton pipeline running DICOM &rarr; NIfTI &rarr; brain mask preprocessing &rarr; DICOM &rarr; Upload to Orthanc
+* Automated triggering via Orthanc Lua API
+* End-to-end reproducible pipeline with verifiable correct outputs
+
+Extended goal achievements:
+* A working Rosetta translation tool capable of coverting Tekton pipelines into multiple workflow formats with a validated example (SGE tested via job submission, rest are validated syntactically)
+
 ### 6. Release Planning
-This project was dekuvered through a series of incremental sprints, systematically building toward the core goal of enabling neuroscience research pipelines to run reproducibly on cloud-native infrastructure (OpenShift + Tekton), and then expanding the scoep to achieve cross-platform workflow execution.
+This project was delivered through a series of incremental sprints, systematically building toward the core goal of enabling neuroscience research pipelines to run reproducibly on cloud-native infrastructure (OpenShift + Tekton), and then expanding the scoep to achieve cross-platform workflow execution.
 
 Each sprint produced a functional release wutg demonstrable functionality, allowing for course correction and alignment with mentor expectations.
 
