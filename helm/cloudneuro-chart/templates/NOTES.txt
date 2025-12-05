@@ -1,0 +1,48 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your CloudNeuro-Tekton neuroimaging pipeline has been deployed.
+
+1. Check the deployment status:
+   kubectl get pods -n {{ .Values.global.namespace }}
+
+{{- if .Values.orthanc.enabled }}
+
+2. Access Orthanc PACS:
+   kubectl port-forward svc/orthanc {{ .Values.orthanc.service.port }}:{{ .Values.orthanc.service.port }} -n {{ .Values.global.namespace }}
+   
+   Then open: http://localhost:{{ .Values.orthanc.service.port }}
+{{- end }}
+
+{{- if .Values.tekton.enabled }}
+
+3. View available Tekton pipelines:
+   tkn pipeline list -n {{ .Values.global.namespace }}
+
+4. Run a pipeline example:
+   tkn pipeline start freesurfer-pipeline \
+     --param input-path=/data/input/subject001.dcm \
+     --param subject-id=subject001 \
+     --workspace name=shared-data,claimName=cloudneuro-input-data \
+     --serviceaccount={{ include "cloudneuro.serviceAccountName" . }} \
+     -n {{ .Values.global.namespace }}
+
+5. Watch pipeline execution:
+   tkn pipelinerun logs -f -n {{ .Values.global.namespace }}
+{{- end }}
+
+{{- if .Values.webui.enabled }}
+
+6. Access Web UI:
+{{- if .Values.webui.ingress.enabled }}
+   http://{{ (index .Values.webui.ingress.hosts 0).host }}
+{{- else }}
+   kubectl port-forward svc/cloudneuro-webui {{ .Values.webui.service.port }}:{{ .Values.webui.service.port }} -n {{ .Values.global.namespace }}
+   Then open: http://localhost:{{ .Values.webui.service.port }}
+{{- end }}
+{{- end }}
+
+For more information, visit:
+  https://github.com/EC528-Fall-2025/CloudNeuro-Tekton
+
+To uninstall:
+  helm uninstall {{ .Release.Name }} -n {{ .Values.global.namespace }}

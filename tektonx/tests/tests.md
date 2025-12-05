@@ -3,7 +3,6 @@
 ## To the Cloud: Neuroscience Pipelines on Tekton
 
 ### DEMO VIDEO + SLIDES
-* [Sprint 5 Demo Video](https://youtu.be/peyusJfjmyU) | [Sprint 5 Slides](https://docs.google.com/presentation/d/1mms0mldRULZ2PqBz8T1U1MMKErzfO6i0rrrQowGttq8/edit?usp=sharing)
 * [Sprint 4 Demo Video](https://youtu.be/h3mNj9MzPz4) | [Sprint 4 Slides](https://docs.google.com/presentation/d/1597sFiXeIIOFcn6FjS6FHKkMCFbVPSVJSeMGVflTo8c/edit?usp=sharing)
 * [Sprint 3 Demo Video](https://youtu.be/Eadwxo6tkok) | [Sprint 3 Slides](https://docs.google.com/presentation/d/14_BMxZWXjEcWHZb7_Ueva3HHOogPLTopwEevkK92Ahg/edit?usp=sharing)
 * [Sprint 2 Demo Video](https://youtu.be/zQTAtZsyRKE) | [Sprint 2 Slides](https://docs.google.com/presentation/d/1-xbEBPg6GZEJfzY3CbQVmoMvFs2EpyrgMJETLsXBBCY/edit?usp=drivesdk)
@@ -40,26 +39,15 @@ While neuroimaging research produces software tools with the potential to improv
 
 2. **Clone + env**
    ```bash
-   git clone https://github.com/EC528-Fall-2025/CloudNeuro-Tekton
+   git clone https://github.com/<your-org>/CloudNeuro-Tekton.git
    cd CloudNeuro-Tekton/tektonx
    uv sync
    ```
 
-3. **Convert a Tekton example**
-Avaliable Targets: 
-   - bash
-   - make
-   - snakemake
-   - chris
-   - argo
-   - nextflow
-   - wdl
-   - slurm
-   - sungrid
-   
-   The example below uses snakemake.
+3. **Convert a Tekton example** (swap target: `bash|make|snakemake|chris|argo|nextflow|wdl|slurm|sungrid`) This command outputs the translated engine definition directly to stdout, to save it to a runnable file, see step 4. 
+
    ```bash
-   uv run python -m tektonx.cli examples/pipeline-complete.yaml --target snakemake
+   uv run python -m tektonx.cli examples/pipeline-complete.yaml --target make
    ```
 
 4. **Save artifacts (example: Snakemake)**
@@ -67,12 +55,14 @@ Avaliable Targets:
    uv run python -m tektonx.cli examples/pipeline-complete.yaml --target snakemake --out dist/Snakefile
    ```
 
-5. **Run tests**
+5. **Run tests** (bash + snakemake executed; others string-checked)
+
+    This is a minimal test suite: only the bash and Snakemake renderers are actually executed, while other targets are validated via string checks. 
    ```bash
    uv run pytest
    ```
-   This is a minimal test suite: only the bash and Snakemake renderers are actually executed, while other targets are validated via string checks.
-   
+
+    Heavier backends (Slurm, SGE, ChRIS, Argo, Nextflow, WDL) are tested as text-only to keep the test suite self-contained. To execute one of these targets on your local system for verification, see below.
    #### To run on an engine targeting a certain backend:
     ```bash
     cd /Users/trieutran/CloudNeuro-Tekton/tektonx
@@ -94,7 +84,7 @@ Avaliable Targets:
     XDG_CACHE_HOME=/tmp TMPDIR=/tmp WORKDIR=/tmp/snake_make_test snakemake -s dist/Snakefile --cores 1
     ```
 
-    ###### ChRIS
+    ###### ChRIS runner
     **Note:** Docker must be running to run this.
     ```bash
     uv run python -m tektonx.cli examples/pipeline-dag.yaml --target chris --out dist/dag_app.py
@@ -125,18 +115,12 @@ Avaliable Targets:
     uv run python -m tektonx.cli examples/pipeline-complete.yaml --target wdl --out /tmp/workflow.wdl
     cromwell run /tmp/workflow.wdl
     ```
-    ###### Sungrid
-    ```bash
-    uv run python -m tektonx.cli examples/pipeline-complete.yaml --target sungrind --out /tmp/sge-task.sh
-    ```
-    ###### Slurm
-    ```bash
-    uv run python -m tektonx.cli examples/pipeline-complete.yaml --target slurm --out /tmp/slurm_demo.sh
-    ```
 
 ### Additional Setup Information
 
-This guide provides the essential steps required to deploy the core infrastructure components used in our ChRIS-based processing environment. These components include Orthanc, which serves as our database/system of record for medical imaging data (DICOM and NIfTI), and the Tekton-based workflow pipelines that orchestrate end-to-end processing within OpenShift.
+There is no need to run anything within this section unless you want to host your own instance of Orthanc, or test individual components using tekton. If you want to completely setup this project from scratch, you may refer to the installation instructions below.
+
+This section provides the essential steps required to deploy the core infrastructure components used in our ChRIS-based processing environment. These components include Orthanc, which serves as our database/system of record for medical imaging data (DICOM and NIfTI), and the Tekton-based workflow pipelines that orchestrate end-to-end processing within OpenShift.
 
 The goal of this setup is to give you a reproducible environment—whether you are deploying the stack for development, testing, or full production. The instructions below assume you have access to an OpenShift cluster and the necessary permissions to create namespaces, deploy workloads, and run pipelines. For most users, each component only needs to be deployed once, with additional notes provided for replication or customization.
 

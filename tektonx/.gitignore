@@ -10,5 +10,15 @@ wheels/
 *.golden
 *.done
 *.snakemake
+.snakemake/
+.nextflow/
+.nextflow.log*
+.nextflow*
+.command*
+.exitcode
+stderr*
+stdout*
+script*
+rc*
 # Virtual environments
 .venv
