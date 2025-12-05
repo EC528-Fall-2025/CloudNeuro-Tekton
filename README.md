@@ -328,17 +328,17 @@ From this point, our client provided two possible branches. Our client is also o
 * Instructions for running the translator are available and understandable by new users without prior knowledge of Tekton or the target system.
 
 ### 6. Release Planning
-This project will be delivered incrementally over a series of sprints, each sprint will be building toward the overall goal: enabling neuroscience research pipelines to run reproducibly on cloud-native infrastructure (OpenShift + Tekton).
+This project was dekuvered through a series of incremental sprints, systematically building toward the core goal of enabling neuroscience research pipelines to run reproducibly on cloud-native infrastructure (OpenShift + Tekton), and then expanding the scoep to achieve cross-platform workflow execution.
 
-Each sprint produces a working release with demonstrable functionality, allowing for feedback, course correction, and alignment with mentor expectations.
+Each sprint produced a functional release wutg demonstrable functionality, allowing for course correction and alignment with mentor expectations.
 
 ### Release Calendar
 
 | Sprint | Dates           | Goal / Deliverable                                                                                   |
 |--------|-----------------|------------------------------------------------------------------------------------------------------|
-| 1      | Sept 17 – Oct 6 | - Setup + onboarding (NERC account, repo, comms with mentor) <br> - Deploy Orthanc on OpenShift (Oct 1) |
-| 2      | Oct 7 – Oct 22  | - Run a scientific MRI pipeline manually (Oct 8) <br> - Automate pipeline execution with Tekton on OpenShift (Oct 22) |
-| 3      | Oct 23 – Nov 5  | - Minimum goal fully achieved: reproducible end-to-end pipeline run on OpenShift / Tekton <br> - DICOM to NIFTI Conversion |
-| 4      | Nov 6 – Nov 19  | - NIFTI to DICOM conversion integrated with tekton <br> - Implement Tekton to Argo/SLURM/ChRIS translation prototype |
-| 5      | Nov 20 – Dec 3  | - Usability improvements, add outputs/visualizations, test with additional pipelines |
-| Final  | Dec 4 – Dec 10  | - Final polish: documentation, final demonstration preparation, GitHub cleanup, reproducibility check <br> - Deliver final presentation |
+| 1      | Sept 17 – Oct 1 | - Foundations: All team members set up NERC/OpenShift accounts <br> - Deploy a simple toy FaaS project <br> - Deploy Orthanc on OpenShift <br> - Establish agile process |
+| 2      | Oct 2 – Oct 15  | - Run the MRI pipeline manually by plugging DICOM images onto Orthanc <br> - Automate Orthanc deployment with Helm on OpenShift |
+| 3      | Oct 16 – Oct 29  | - Achieve Minimum Viable Workflow: Run the full end-to-end conversion pipeline on OpenShift / Tekton <br> - Implement DICOM &rarr; dcm2niix (NIfTI conversion) &rarr; pl-emerald (Brain Mask visualization) <br> - Orchestrate the pipeline using Tekton and explore Orthanc plugin triggering |
+| 4      | Oct 30 – Nov 12  | - - Develop Python CLI "Rosetta Translator" to convert Tekton YAML into executable scripts <br> - Implement NIfTI to DICOM conversion with metadata patching <br> - Set up local SLURM cluster using Docker for testing <br> - Refine Lua script triggering Tekton workflow upon DICOM series upload to Orthanc |
+| 5      | Nov 13 – Nov 24  | - Automate the upload of the converted NIfTI &rarr; DICOM back to Orthanc, completing the full DICOM round-trip <br> - Implement and validate conversion for Sun Grid Engine (SGE) on the BC SCC (Shared Computing Cluster) <br> - Consolidate all components into Helm chart for reproducible deployment |
+| Wrapup  | Nov 25 – Dec 6  | - Final deliverable: well-documented, executable Command-Line-Application via a GitHub repository <br> - Complete documentation <br> - Final demonstration preparation <br> - GitHub cleanup <br> - Reproducibilty checks |
