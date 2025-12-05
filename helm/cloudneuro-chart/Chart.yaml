@@ -1,0 +1,17 @@
+apiVersion: v2
+name: cloudneuro
+description: A Helm chart for CloudNeuro-Tekton neuroimaging pipelines on OpenShift
+type: application
+version: 0.1.0
+appVersion: "1.0"
+keywords:
+  - neuroimaging
+  - tekton
+  - freesurfer
+  - medical-imaging
+maintainers:
+  - name: EC528-Fall-2025
+    url: https://github.com/EC528-Fall-2025/CloudNeuro-Tekton
+home: https://github.com/EC528-Fall-2025/CloudNeuro-Tekton
+sources:
+  - https://github.com/EC528-Fall-2025/CloudNeuro-Tekton

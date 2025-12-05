@@ -1,29 +1,38 @@
 from __future__ import annotations
 
 from tektonx.ir import IRValidationError
-from tektonx.parsers import TektonParseError, parse_tekton_yaml
+from tektonx.parsers import get_parser
 from tektonx.renderers import get_renderer
 
 
 class ConversionError(Exception):
-    """Raised when conversion between Tekton and a renderer fails."""
+    """Raised when conversion between a workflow source and a renderer fails."""
 
 
-def convert(tekton_yaml: str, target: str = "bash") -> str:
+def convert(workflow_yaml: str, target: str = "bash", source: str = "tekton") -> str:
     """
-    Convert Tekton YAML into the requested renderer output.
+    Convert workflow YAML into the requested renderer output.
 
     Parameters
     ----------
-    tekton_yaml: str
-        Raw Tekton YAML (Task, TaskRun, Pipeline, or PipelineRun).
+    workflow_yaml: str
+        Raw YAML for the selected source format.
     target: str
         Renderer key. See tektonx.renderers.RENDERERS for options.
+    source: str
+        Input format: tekton (default), argo, nextflow.
     """
     try:
-        workflow = parse_tekton_yaml(tekton_yaml)
+        parser, parse_errors = get_parser(source)
+    except KeyError as exc:
+        raise ConversionError(str(exc)) from exc
+
+    try:
+        workflow = parser(workflow_yaml)
         workflow.validate()
-    except (TektonParseError, IRValidationError) as exc:
+    except IRValidationError as exc:
+        raise ConversionError(str(exc)) from exc
+    except parse_errors as exc:
         raise ConversionError(str(exc)) from exc
 
     try:
@@ -39,4 +48,4 @@ def convert(tekton_yaml: str, target: str = "bash") -> str:
 
 def convert_tekton_to_script(tekton_yaml: str) -> str:
     """Backward-compatible helper to keep the original CLI behavior."""
-    return convert(tekton_yaml, target="bash")
+    return convert(tekton_yaml, target="bash", source="tekton")

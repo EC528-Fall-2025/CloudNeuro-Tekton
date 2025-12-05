@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloudneuro-input-data
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "cloudneuro.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - {{ .Values.storage.input.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.input.size }}
+  {{- if .Values.storage.input.storageClass }}
+  storageClassName: {{ .Values.storage.input.storageClass }}
+  {{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloudneuro-output-data
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "cloudneuro.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - {{ .Values.storage.output.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.output.size }}
+  {{- if .Values.storage.output.storageClass }}
+  storageClassName: {{ .Values.storage.output.storageClass }}
+  {{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloudneuro-cache
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "cloudneuro.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - {{ .Values.storage.cache.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.cache.size }}
+  {{- if .Values.storage.cache.storageClass }}
+  storageClassName: {{ .Values.storage.cache.storageClass }}
+  {{- end }}

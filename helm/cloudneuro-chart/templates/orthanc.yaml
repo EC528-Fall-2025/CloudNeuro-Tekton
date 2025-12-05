@@ -1,0 +1,107 @@
+{{- if .Values.orthanc.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orthanc
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "cloudneuro.labels" . | nindent 4 }}
+    app.kubernetes.io/component: orthanc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "cloudneuro.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: orthanc
+  template:
+    metadata:
+      labels:
+        {{- include "cloudneuro.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: orthanc
+    spec:
+      serviceAccountName: {{ include "cloudneuro.serviceAccountName" . }}
+      containers:
+      - name: orthanc
+        image: "{{ .Values.orthanc.image.repository }}:{{ .Values.orthanc.image.tag }}"
+        imagePullPolicy: {{ .Values.orthanc.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.orthanc.service.port }}
+          protocol: TCP
+        - name: dicom
+          containerPort: {{ .Values.orthanc.service.dicomPort }}
+          protocol: TCP
+        env:
+        - name: ORTHANC__AUTHENTICATION_ENABLED
+          value: "false"
+        - name: ORTHANC__REMOTE_ACCESS_ALLOWED
+          value: "true"
+        {{- if .Values.orthanc.persistence.enabled }}
+        volumeMounts:
+        - name: orthanc-data
+          mountPath: /var/lib/orthanc/db
+        {{- end }}
+        resources:
+          {{- toYaml .Values.orthanc.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /app/explorer.html
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /app/explorer.html
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      {{- if .Values.orthanc.persistence.enabled }}
+      volumes:
+      - name: orthanc-data
+        persistentVolumeClaim:
+          claimName: orthanc-pvc
+      {{- end }}
+---
+{{- if .Values.orthanc.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: orthanc-pvc
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "cloudneuro.labels" . | nindent 4 }}
+    app.kubernetes.io/component: orthanc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.orthanc.persistence.size }}
+  {{- if .Values.orthanc.persistence.storageClass }}
+  storageClassName: {{ .Values.orthanc.persistence.storageClass }}
+  {{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orthanc
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "cloudneuro.labels" . | nindent 4 }}
+    app.kubernetes.io/component: orthanc
+spec:
+  type: {{ .Values.orthanc.service.type }}
+  ports:
+  - name: http
+    port: {{ .Values.orthanc.service.port }}
+    targetPort: http
+    protocol: TCP
+  - name: dicom
+    port: {{ .Values.orthanc.service.dicomPort }}
+    targetPort: dicom
+    protocol: TCP
+  selector:
+    {{- include "cloudneuro.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: orthanc
+{{- end }}

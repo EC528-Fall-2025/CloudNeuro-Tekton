@@ -1,0 +1,125 @@
+{{- if .Values.tekton.enabled -}}
+{{- if .Values.tekton.pipelines.freesurfer.enabled -}}
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: freesurfer-preprocess
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "cloudneuro.labels" . | nindent 4 }}
+spec:
+  params:
+    - name: input-path
+      type: string
+      description: Path to input MRI data
+    - name: subject-id
+      type: string
+      description: Subject identifier
+  workspaces:
+    - name: data
+      description: Workspace for input/output data
+  steps:
+    - name: convert-dicom
+      image: pydicom/pydicom:latest
+      script: |
+        #!/usr/bin/env python3
+        import os
+        import pydicom
+        import nibabel as nib
+        import numpy as np
+        from pathlib import Path
+        
+        print("Converting DICOM to NIfTI...")
+        input_path = "$(params.input-path)"
+        subject_id = "$(params.subject-id)"
+        
+        # Add your DICOM to NIfTI conversion logic here
+        print(f"Processing subject: {subject_id}")
+        print(f"Input path: {input_path}")
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: freesurfer-recon
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "cloudneuro.labels" . | nindent 4 }}
+spec:
+  params:
+    - name: subject-id
+      type: string
+      description: Subject identifier
+  workspaces:
+    - name: data
+      description: Workspace for FreeSurfer data
+  steps:
+    - name: run-recon-all
+      image: {{ .Values.tekton.pipelines.freesurfer.image }}
+      script: |
+        #!/bin/bash
+        set -e
+        
+        export SUBJECTS_DIR=/workspace/data/subjects
+        SUBJECT_ID=$(params.subject-id)
+        
+        echo "Running FreeSurfer recon-all for subject: ${SUBJECT_ID}"
+        
+        # Run FreeSurfer reconstruction
+        recon-all \
+          -s ${SUBJECT_ID} \
+          -i /workspace/data/input/${SUBJECT_ID}.nii.gz \
+          -all \
+          -parallel
+        
+        echo "FreeSurfer processing complete for ${SUBJECT_ID}"
+      resources:
+        requests:
+          memory: {{ .Values.tekton.pipelines.freesurfer.resources.requests.memory }}
+          cpu: {{ .Values.tekton.pipelines.freesurfer.resources.requests.cpu }}
+        limits:
+          memory: {{ .Values.tekton.pipelines.freesurfer.resources.limits.memory }}
+          cpu: {{ .Values.tekton.pipelines.freesurfer.resources.limits.cpu }}
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: freesurfer-pipeline
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "cloudneuro.labels" . | nindent 4 }}
+spec:
+  params:
+    - name: input-path
+      type: string
+      description: Path to input MRI data
+    - name: subject-id
+      type: string
+      description: Subject identifier
+  workspaces:
+    - name: shared-data
+      description: Shared workspace for pipeline data
+  tasks:
+    - name: preprocess
+      taskRef:
+        name: freesurfer-preprocess
+      params:
+        - name: input-path
+          value: $(params.input-path)
+        - name: subject-id
+          value: $(params.subject-id)
+      workspaces:
+        - name: data
+          workspace: shared-data
+    - name: recon
+      taskRef:
+        name: freesurfer-recon
+      params:
+        - name: subject-id
+          value: $(params.subject-id)
+      workspaces:
+        - name: data
+          workspace: shared-data
+      runAfter:
+        - preprocess
+{{- end }}
+{{- end }}

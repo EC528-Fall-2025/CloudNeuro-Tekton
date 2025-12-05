@@ -2,6 +2,11 @@
 
 ## Overview
 
+`tektonx` converts Tekton Tasks / TaskRuns / Pipelines / PipelineRuns into other
+workflow backends using a shared intermediate representation. Today the bundled
+renderers target Bash (default), GNU Make, Snakemake, and a ChRIS plugin
+(`app.py`) skeleton suitable for miniChRIS. Argo and Nextflow YAML can also be
+ingested with `--source` to reuse the same renderers.
 `tektonx` is a workflow-translation tool that converts **Tekton Tasks / TaskRuns / Pipeline / PipelineRuns** into multiple workflow backends using a shared intermediate representation.
 It currently supports:
 
@@ -91,7 +96,7 @@ tektonx examples/hello-task.yaml --target slurm
 From the `tektonx/` directory, run:
 
 ```bash
-uv run python -m tektonx.cli convert <tekton-yaml> --target <bash|make|snakemake>
+uv run python -m tektonx.cli convert <workflow-yaml> --source <tekton|argo|nextflow|wdl> --target <bash|make|snakemake>
 ```
 ---
 
@@ -109,7 +114,12 @@ uv run python -m tektonx.cli convert examples/pipeline-complete.yaml --target sn
 
 # ChRIS plugin (writes app.py that runs steps sequentially in one container)
 uv run python -m tektonx.cli convert examples/task-complete.yaml --target chris --out dist/app.py
+
+# ChRIS plugin with a simple DAG (fan-out/fan-in)
+uv run python -m tektonx.cli convert examples/pipeline-dag.yaml --target chris --out dist/dag_app.py
 ```
+
+Use `--source argo`, `--source nextflow`, or `--source wdl` to take those formats through the same renderers (default is `tekton`).
 
 > **Note:** If you invoke the CLI without the `convert` subcommand (legacy mode),
 > pass the YAML path directly after `tektonx.cli`. Both forms are supported.
@@ -131,6 +141,7 @@ chmod +x dist/hello.sh
 - Emits a minimal `app.py` compatible with the [`python-chrisapp-template`](https://github.com/FNNDSC/python-chrisapp-template).
 - Steps run sequentially inside one container (miniChRIS-friendly); Tekton step images are logged but not pulled.
 - The plugin writes `workflow_report.json` to the output directory summarizing successes/failures.
+- DAG metadata is emitted to `dag.json` and `dag.dot` (Graphviz) alongside the report.
 
 ## Example Inputs / Tests
 

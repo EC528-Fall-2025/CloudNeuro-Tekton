@@ -1,0 +1,51 @@
+# .helmignore - Patterns to ignore when building Helm packages
+# Similar to .gitignore but for Helm chart packaging
+# This file tells Helm which files to exclude when creating a chart package
+
+# MacOS files
+.DS_Store
+
+# Version Control Systems
+.git/
+.gitignore
+.gitattributes
+.bzr/
+.bzrignore
+.hg/
+.hgignore
+.svn/
+
+# Editor backup files
+*.swp
+*.swo
+*.swn
+*.bak
+*.tmp
+*.orig
+*~
+.*.sw?
+
+# IDE and editor directories
+.project
+.idea/
+*.tmproj
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Build and test artifacts
+*.log
+.tox/
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# Documentation drafts
+NOTES.md
+TODO.md
+DRAFT*.md
+
+# Development files (uncomment if you don't want these in packages)
+# examples/
+# QUICKSTART.md
+# FILE_STRUCTURE_GUIDE.md

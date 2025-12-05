@@ -1,0 +1,11 @@
+# Minimal container to run a generated ChRIS runner (dist/app.py or dist/dag_app.py)
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy the generated runner into the image; regenerate before building if needed.
+COPY dist/dag_app.py /app/app.py
+
+RUN pip install --no-cache-dir chris_plugin
+
+ENTRYPOINT ["python", "/app/app.py"]

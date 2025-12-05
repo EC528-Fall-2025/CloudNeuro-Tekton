@@ -23,8 +23,8 @@ def _render_task(task: Task, rule_name: str) -> List[str]:
     task_lines: List[str] = [f"# Tekton task: {task.name}", f"rule {rule_name}:"]
     if task.run_after:
         task_lines.append("    input:")
-        for dep in task.run_after:
-            task_lines.append(f'        "{dep}.done"')
+        deps = ", ".join(f'"{dep}.done"' for dep in task.run_after)
+        task_lines.append(f"        {deps}")
     task_lines.append("    output:")
     task_lines.append(f'        "{task.name}.done"')
     task_lines.append("    run:")
@@ -40,7 +40,10 @@ def _render_task(task: Task, rule_name: str) -> List[str]:
 
 def _step_commands(step: Step) -> List[str]:
     if step.script:
-        return textwrap.dedent(step.script).strip().splitlines()
+        script = textwrap.dedent(step.script).strip()
+        # Escape braces so Snakemake's formatter does not treat shell ${VAR} as placeholders
+        script = script.replace("{", "{{").replace("}", "}}")
+        return script.splitlines()
     cmd = _command_line(step)
     if cmd:
         return [cmd]
