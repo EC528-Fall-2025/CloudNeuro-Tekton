@@ -3,9 +3,8 @@ set -e
 
 # Config
 NAMESPACE="chris-students-c9344e"
-RELEASE_NAME="vs-orthanc"
+RELEASE_NAME="orthanc"
 CHART_REPO_URL="https://github.com/FNNDSC/charts.git"
-CHART_DIR="charts/charts/orthanc"
 
 # 1) Install Helm
 echo " Checking Helm installation..."

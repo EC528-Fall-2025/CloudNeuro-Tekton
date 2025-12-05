@@ -1,0 +1,41 @@
+config:
+  lokiAddress: http://loki:3100/loki/api/v1/push
+
+pipelineStages:
+  - cri
+
+scrapeConfigs:
+  - job_name: kubernetes-pods
+    kubernetes_sd_configs:
+      - role: pod
+
+    relabel_configs:
+      - action: replace
+        source_labels: [__meta_kubernetes_pod_label_app]
+        target_label: app
+
+      - action: replace
+        source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+
+      - action: replace
+        source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+  - job_name: orthanc
+    static_configs:
+      - targets: [ ]
+        labels:
+          job: orthanc
+          __path__: /var/log/containers/*orthanc*.log
+
+extraArgs:
+  - "-config.expand-env=true"
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi

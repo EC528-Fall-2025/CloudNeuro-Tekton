@@ -1,0 +1,44 @@
+adminPassword: "password123"
+
+service:
+  type: ClusterIP
+
+persistence:
+  enabled: true
+  size: 2Gi
+  storageClassName: ocs-external-storagecluster-ceph-rbd
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        type: loki
+        url: http://loki:3100
+        access: proxy
+        isDefault: true
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: 'default'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        options:
+          path: /var/lib/grafana/dashboards
+
+dashboards:
+  default:
+    loki-overview:
+      gnetId: 13639
+      revision: 1
+      datasource: Loki
+
+route:
+  enabled: true
+  host: grafana-vs.apps.shift.nerc.mghpcc.org
+  tls:
+    termination: edge
