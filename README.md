@@ -181,63 +181,62 @@ To host your own Orthanc instance, this step only needs to be done **once**, for
 For OpenShift environment setup details see `docs/setup.md`; for Orthanc/Tekton manifests see `scripts/`.
 
 ### 1. Vision and Goals Of The Project
-Our minimum goal is to demonstrate the execution of neuroimaging research software, such as FreeSurfer, on OpenShift using Tekton/OpenShift pipelines. This involves packaging existing neuroimaging tools so they can run efficiently and reliably in a cloud-native environment, thereby automating pipeline execution and facilitating computational reproducibility through consistent containerized environments.
+Our minimum goal was to demonstrate the execution of neuroimaging research software, such as FreeSurfer or PL-Emerald, on OpenShift using Tekton/OpenShift pipelines. This remained as the foundation of our project:  packaging existing neuroimaging tools so they can run efficiently and reliably in a cloud-native environment, thereby automating pipeline execution and facilitating computational reproducibility through consistent containerized environments.
 
-Beyond this baseline, the project aims to address the broader challenges identified in clinical adoption by emphasizing three guiding principles:
+As the project developed, the primary goal evolved into creating a reference cloud-native neuroimaging workflow that can:
+* Receive imaging data from a DICOM source (Orthanc)
+* Automatically trigger pipeline execution upon DICOM series upload
+   1. Perform DICOM &rarr; NIfTI conversion
+   2. Run a preprocessing step (e.g., *pl-emerald* fetal brain masking)
+   3. Perform processed NIfTI &rarr; DICOM conversion
+   4. Store modified DICOM series back into the PACS server in a consistent, reproducible way
 
-* Usability and Clinical Accessibility (Branch A) – Automation in the cloud is only the first step. For clinicians to benefit, tools must be intuitive, low-friction, and aligned with existing workflows. Branch A focuses on building a user-facing platform for triggering pipeline execution, monitoring progress, and visualizing outputs. This layer transforms containerized pipelines into a usable clinical tool, addressing the steep learning curves and workflow disruptions that currently prevent adoption.
-* Scalability and Infrastructure Interoperability (Branch B) – Cloud computing provides elastic, pay-as-you-go compute capacity that is especially valuable for institutions without dedicated HPC infrastructure, lowering the barrier for smaller or resource-limited hospitals to run advanced neuroimaging pipelines. At the same time, institutions with existing HPC systems may see less value in cloud elasticity. For these cases, interoperability becomes crucial. Branch B explores translating Tekton pipelines into formats such as SLURM or Argo, ensuring that pipelines can run across diverse infrastructures and integrate with existing systems.
-* Transparency and Trust – Existing proprietary platforms impose steep licensing fees for products that often remain opaque and require further customization. By building on open-source software and cloud-native standards such as Tekton, we enable transparency, interoperability, and community-driven trust, ensuring the software can be inspected, extended, and widely adopted.
+This produced a complete, automated, end-to-end workflow inside OpenShift.
+
+This cloud-native workflow was an essential first-milestone: it provided the reproducible Tekton pipeline definition from which further development could proceed. Completing this deployment ensured we has a working example of a real neuroimaging pipeline expressed in Tekton.
+
+Over the semester, however, the project evolved toward a broader and more impactful goal: improving interoperability of neuroimaging workflows across compute environments. Many research labs use SLURM, Sungrid, Snakemake, Argo, etc. instead of Tekton. This creates major friction when pipelines must be shared across institutions or migrated between HPC and cloud systems.
+
+To address this fragmentation, the project includes a workflow "Rosetta Stone" translator (*tektonx*) that converts Tekton pipelines into several alternative workflow languages.
+
+Thus, the project can be understood in two layers:
+1. Cloud-Native Foundation: a fully working Tekton neuroimaging workflow with a DICOM server used both as a demonstration and as the canonical input format.
+2. Interoperability Deliverable (Final Output): a translation tool that converts Tekton pipelines into multiple workflow specifications, imrpoving reproducibility and multi-institution collaboration.
+
+
+We emphasized two guiding principles to address the broader challenges indentified in clinical adoption:
+* **Scalability and Infrastructure Interoperability** – Cloud computing provides elastic, pay-as-you-go compute capacity that is especially valuable for institutions without dedicated HPC infrastructure, lowering the barrier for smaller or resource-limited hospitals to run advanced neuroimaging pipelines. At the same time, institutions with existing HPC systems may see less value in cloud elasticity. For these cases, interoperability becomes crucial. Translating Tekton pipelines into formats such as SLURM or Argo, ensures that pipelines can run across diverse infrastructures and integrate with existing systems. This principle increases usability for our customer segment.
+* **Transparency and Trust** – Existing proprietary platforms impose steep licensing fees for products that often remain opaque and require further customization. By building on open-source software and cloud-native standards such as Tekton, we enable transparency, interoperability, and community-driven trust, ensuring the software can be inspected, extended, and widely adopted.
+
+
+NOTE TO SELF: THIS CAN BE ADDED IN A FUTURE WORKS SECTION
+* Usability and Clinical Accessibility  – Automation in the cloud is only the first step. For clinicians to truly benefit, tools must be intuitive, low-friction, and aligned with existing workflows. Future work may focus on building a user-facing platform for triggering pipeline execution, monitoring progress, and visualizing outputs. This layer transforms containerized pipelines into a usable clinical tool, addressing the steep learning curves and workflow disruptions that currently prevent adoption.
 
 ### 2. Users/Personas Of The Project
+Neuroimaging research is both computationally intensive and requires advanced technical knoledge of the Linux command-line (CLI). Cloud-native tools such as Kubernetes and Tekton provide opportunities for elastic compute and integration with clinical systems.
+
+While our original proposed project focused on building a tool targeting clinicians, based on actual project development:
+
+The system is a **reference cloud-native deployment** and **toolkit** intended for research computing teams.
+* Researcher IT teams may modify and deploy this cloud-native workflow, using it as a template, in their own Kubernetes projects. A computing administrator, such as a Research IT team or a supervising cloud team, maintains the environment.
+
 Neuroimaging research is both computationally intensive and requires advanced technical knowledge of the Linux command-line. Cloud-native tools such as Kubernetes and Tekton provide opportunities for elastic compute and integration with clinical systems. The personas differ depending on whether the project team pursues Branch A (Platform + UI) or Branch B (Rosetta Translator). 
 
-#### Branch A: Platform for Pipeline Execution, Monitoring, and Visualization 
-
-**Persona 1**: Clinician / Physician
-* Role Description: A fetal medicine specialist who interprets brain MRIs and needs fast, clear, clinically useful imaging results without technical setup.
-
+**Persona 1**: Research Scientist
+* Role Description: A researcher who designs and interprest MRI analysis pipelines, but needs portability across systems with varying compute environments (e.g., SLURM, YAML, Argo Workflow, or ChRIS), especially when the system does not natively support Tekton. Needs fast, clear, useful imaging results without the technical setup.
 
 Key characteristics:
 * Skilled in medicine, not Linux pipelines
-* Time-constrained, needs results integrated into hospital imaging systems
-* Prefers visual overlays and cortical thickness measurements
-
-
-Responsibilities:
-* Review processed MRI results and segmentations 
-* Use data in patient assessments and decisions
-* Provide feedback on the clarity and accuracy of outputs 
-
-**Persona 2**: Researcher Scientist
-* Role Description: A neuroscientist researcher analyzing MRI scans to study brain development using FreeSurfer and related tools.
-
-Key characteristics:
-* Comfortable with Linux and research pipelines
-* Seeks reproducible results across large datasets
-* Limited by local computing resources
-
-Responsibilities: 
-* Run and validate segmentation workflows 
-*Export results for statistical analysis 
-*Publish findings based on processed imaging data
-
-#### Branch B: “Rosetta” Translator for Pipeline 
-
-**Persona 1**: Research Scientist
-* Role Description: A researcher who designs and runs MRI analysis pipelines, but needs portability across systems with varying compute environments (e.g., SLURM, YAML, Argo Workflow, or ChRIS), especially when the system does not natively support Tekton.
-
-Key characteristics:
-* Familiar with Tekton, SLURM, and Argo
 * Prioritizes reproducibility and interoperability
 * Collaborates with multi-institutional teams
 
 Responsibilities: 
-* Convert the Tekton pipeline into SLURM sbatch 
-* Share workflows with collaborators in other environments 
-* Validate that the results are consistent across platforms 
+* Proposes a workflow for neuroimaging pipeline to assist research efforts 
+* Share workflows with collaborators in other environments  
 
-**Persona 2**: Research Developer
+These users interact with the outputs generated by the pipeline (NIfTI files, brain masks, etc.). They depend on reproducible results and minimal system overhead.
+
+**Persona 2**: Research Engineer / Developer
 * Role Description: An academic researcher and/or startup software developer who aims to disseminate and/or commercialize their software pipelines.
 
 Key characteristics:
@@ -245,7 +244,18 @@ Key characteristics:
 * Non-expert of cloud nor HPC
 
 Responsibilities:
-* Package their software so that it can be used in a variety of target environments, including HPC and Kubernetes
+* Provides resources to research computing team to package their software so that it can be used in a variety of target environments, including HPC and Kubernetes.
+
+**Persona 3**: Research Computing Administrator
+* Role Description: A member of the research team / overarching administration for multiple research teams. Primary role is managing the Kubernetes project, deploying Orthanc, configuring storage/authentication, and operating Tekton pipelines for chosen preprocessing steps.
+
+Key characteristics:
+* Skilled in cloud deployments and Kubernetes, not medicine
+
+Responsibilities:
+* Deploy and maintain the cloud-native environment
+* Manage namespaces, PVCs, resource quotas, and secrets
+* Ensure mutiple users can submit studies without interfering with each other
 
 ### 3. Scope and Features Of The Project
 The scope of this project is to demonstrate how neuroimaging pipelines can be executed in a cloud-native pipeline using Tekton on OpenShift. The team will focus first on achieving the minimum goal of successfully running a neuroimaging workflow end-to-end, then extend the work by pursuing either **Branch A** (user-facing platform) or **Branch B** (pipeline translation tool). 
