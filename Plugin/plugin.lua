@@ -48,8 +48,17 @@ function OnStoredInstance(instanceId, tags, metadata, origin)
   local SOPClassUID = tags["SOPClassUID"]
 
   if triggered_series[seriesId] then
-    log("Series " .. seriesId .. " already triggered; skipping.")
-    return
+    -- Check if series still exists in Orthanc
+    local exists = pcall(RestApiGet, '/series/' .. seriesId)
+    if exists then
+      log("Series " .. seriesId .. " already triggered; skipping.")
+      return
+    else
+      -- Series was deleted, remove from cache
+      log("Series " .. seriesId .. " was deleted, allowing re-trigger.")
+      triggered_series[seriesId] = nil
+      save_triggered()
+    end
   end
 
   triggered_series[seriesId] = true
@@ -68,7 +77,7 @@ function OnStoredInstance(instanceId, tags, metadata, origin)
     spec = {
       pipelineRef = { name = "orthanc-to-better-dicom" },
       params = {
-        { name = "orthancUrl",  value = "https://km-was-here.apps.shift.nerc.mghpcc.org" },
+        { name = "orthancUrl",  value = "https://orthanc-chris.apps.shift.nerc.mghpcc.org" },
         { name = "orthancAuth", value = "orthanc-720:jennings-minions" },
         { name = "patientId",   value = patientId or "unknown" },
         { name = "studyId",     value = studyId or "unknown" },
