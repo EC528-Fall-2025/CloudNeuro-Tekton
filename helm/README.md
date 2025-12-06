@@ -28,8 +28,6 @@ helm install cloudneuro cloudneuro-chart \
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
-- [Development](#development)
-- [Contributing](#contributing)
 
 ## Features
 
@@ -311,6 +309,101 @@ kubectl delete namespace cloudneuro
 
 ## Troubleshooting
 
+### Common Installation Issues
+
+#### Issue: "cannot re-use a name that is still in use"
+
+**Cause**: A previous Helm release with the same name exists
+
+**Solution**:
+
+```bash
+# Check existing releases
+helm list -n cloudneuro
+
+# If status is "failed" or you want to start fresh, uninstall:
+helm uninstall cloudneuro -n cloudneuro
+
+# Then reinstall
+helm install cloudneuro cloudneuro-chart \
+  --namespace cloudneuro \
+  --values examples/values-minimal.yaml \
+  --wait
+```
+
+#### Issue: "Namespace already exists and cannot be imported"
+
+**Cause**: Namespace exists but doesn't have required Helm labels
+
+**Solution**:
+
+```bash
+# Add required Helm labels to existing namespace
+kubectl label namespace cloudneuro app.kubernetes.io/managed-by=Helm
+kubectl annotate namespace cloudneuro meta.helm.sh/release-name=cloudneuro
+kubectl annotate namespace cloudneuro meta.helm.sh/release-namespace=cloudneuro
+
+# Then install WITHOUT --create-namespace flag
+helm install cloudneuro cloudneuro-chart \
+  --namespace cloudneuro \
+  --values examples/values-minimal.yaml \
+  --wait
+```
+
+**Alternative**: Delete and recreate the namespace
+
+```bash
+# Delete namespace
+kubectl delete namespace cloudneuro
+
+# Wait for deletion to complete
+kubectl get namespace cloudneuro
+# Should return: Error from server (NotFound)
+
+# Create namespace manually
+kubectl create namespace cloudneuro
+
+# Add Helm labels
+kubectl label namespace cloudneuro app.kubernetes.io/managed-by=Helm
+kubectl annotate namespace cloudneuro meta.helm.sh/release-name=cloudneuro
+kubectl annotate namespace cloudneuro meta.helm.sh/release-namespace=cloudneuro
+
+# Install
+helm install cloudneuro cloudneuro-chart \
+  --namespace cloudneuro \
+  --values examples/values-minimal.yaml \
+  --wait
+```
+
+#### Issue: Namespace stuck in "Terminating" state
+
+**Cause**: Resources with finalizers preventing deletion
+
+**Solution**:
+
+```bash
+# Force delete the namespace
+kubectl delete namespace cloudneuro --force --grace-period=0
+
+# Wait 10-15 seconds, then verify
+kubectl get namespace cloudneuro
+# Should return: Error from server (NotFound)
+
+# Create fresh namespace with labels
+kubectl create namespace cloudneuro
+kubectl label namespace cloudneuro app.kubernetes.io/managed-by=Helm
+kubectl annotate namespace cloudneuro meta.helm.sh/release-name=cloudneuro
+kubectl annotate namespace cloudneuro meta.helm.sh/release-namespace=cloudneuro
+
+# Install
+helm install cloudneuro cloudneuro-chart \
+  --namespace cloudneuro \
+  --values examples/values-minimal.yaml \
+  --wait
+```
+
+### Storage and Resource Issues
+
 ### Issue: PVCs Stuck in Pending
 
 **Cause**: No storage provisioner available
@@ -476,17 +569,3 @@ helm package cloudneuro-chart
 
 # Creates: cloudneuro-0.1.0.tgz
 ```
-
-### Development Guidelines
-
-- Follow Helm best practices
-- Test changes with `helm lint`
-- Update documentation as needed
-- Include examples for new features
-
-## Acknowledgments
-
-- Boston University EC528 Fall 2025 Course
-- [Orthanc](https://www.orthanc-server.com/) - Medical imaging PACS
-- [Tekton](https://tekton.dev/) - Cloud-native CI/CD pipelines
-- [FreeSurfer](https://surfer.nmr.mgh.harvard.edu/) - Neuroimaging analysis tools
