@@ -137,7 +137,7 @@ Avaliable Targets:
     ```
     ###### Sungrid
     ```bash
-    uv run python -m tektonx.cli examples/pipeline-complete.yaml --target sungrind --out /tmp/sge-task.sh
+    uv run python -m tektonx.cli examples/pipeline-complete.yaml --target sungrid --out /tmp/sge-task.sh
     ```
     ###### Slurm
     ```bash
@@ -206,12 +206,12 @@ Thus, the project can be understood in two layers:
 2. Interoperability Deliverable (Final Output): a translation tool that converts Tekton pipelines into multiple workflow specifications, imrpoving reproducibility and multi-institution collaboration.
 
 
-We emphasized two guiding principles to address the broader challenges indentified in clinical adoption:
+We emphasized two guiding principles to address the broader challenges identified in clinical adoption:
 * **Scalability and Infrastructure Interoperability** – Cloud computing provides elastic, pay-as-you-go compute capacity that is especially valuable for institutions without dedicated HPC infrastructure, lowering the barrier for smaller or resource-limited hospitals to run advanced neuroimaging pipelines. At the same time, institutions with existing HPC systems may see less value in cloud elasticity. For these cases, interoperability becomes crucial. Translating Tekton pipelines into formats such as SLURM or Argo, ensures that pipelines can run across diverse infrastructures and integrate with existing systems. This principle increases usability for our customer segment.
 * **Transparency and Trust** – Existing proprietary platforms impose steep licensing fees for products that often remain opaque and require further customization. By building on open-source software and cloud-native standards such as Tekton, we enable transparency, interoperability, and community-driven trust, ensuring the software can be inspected, extended, and widely adopted.
 
 
-NOTE TO SELF: THIS CAN BE ADDED IN A FUTURE WORKS SECTION
+TODO TO SELF: THIS CAN BE ADDED IN A FUTURE WORKS SECTION
 * Usability and Clinical Accessibility  – Automation in the cloud is only the first step. For clinicians to truly benefit, tools must be intuitive, low-friction, and aligned with existing workflows. Future work may focus on building a user-facing platform for triggering pipeline execution, monitoring progress, and visualizing outputs. This layer transforms containerized pipelines into a usable clinical tool, addressing the steep learning curves and workflow disruptions that currently prevent adoption.
 
 ### 2. Users/Personas Of The Project
@@ -286,41 +286,110 @@ The scope of this project is to demonstrate how neuroimaging pipelines can be ex
 
 #### Out-of-Scope
 Certain elements are out of scope for this project. We do not propose the following to be in-scope for this project:
-*  Building a full library of all possible neuroimaging tools
+* Building a full library of all possible neuroimaging tools
 * Developing advanced data management system for long-term storage
 * Optimizing performance for large-scale clinical use
 
 ### 4. Solution Concept
 
+This project implements a cloud-native neuroimaging workflow using OpenShfit, Orthanc, and Tekton, and extends it withj a workflow translation tool that improves portability across comptue environments. The solution combines containerization, event-driven orchestration, and workflow modeling to make neuroimaging pipelines reproducible and interoperable within a cloud-native environment.
+
 #### 4.1 High-Level Architecture
 **Global Architectural Structure of the Project:**
-The project architecture centers on containerized neuroimaging workflows deployed in Red Hat OpenShift and orchestrated with Tekton pipelines. 
+The project architecture centers on containerized neuroimaging workflows deployed in Red Hat OpenShift and orchestrated with Tekton pipelines, automatically triggered via an Orthanc Lua event script. 
 ![Proposed Solution Architecture](./media/ec528-solution-architecture.png)
 
 At the high level, the architecture includes the following components:
 
-1. **Data Ingestion (PACS)**: Imaging data is retrieved from a clinical image database (e.g., PACS) deployed inside OpenShift.
-2. **Preprocessing**: The pipeline performs standard image preparation steps to ensure data is ready for analysis.
-3. **Analysis**: Containerized neuroimaging tools execute the analysis (e.g., segmentation, measurement, or other workflows).
-4. **Result Export**: Processed data, derived imaging outputs, and reports are pushed back into the clinical database, making them accessible for clinicians and researchers.
-5. **Pipeline Orchestration (Tekton)**: Tekton defines and automates the execution of each stage, ensuring reproducibility and consistency across runs.
-6. **Monitoring and Logging**: OpenShift and Tekton provide job monitoring, error logging, and reproducibility verification.
+1. **Data Ingestion (PACS / Orthanc)**: DICOM imaging data is upload into Orthanc, which serves as a research PACS within the OpenShift cluster.
+2. **Automated Triggering (Lua Event Listener)**: When a new DICOM study is received and considered 'stable' for a patient, a Lua script running inside Orthanc sends a request to the Tekton API, initating a new PipelineRun.
+3. **Preprocessing**: The Tekton pipeline retrieves the corresponding DICOM series, converts it to NIfTI, and performs initial processing steps, like extracting metadata to prepare data for DICOM reconversion.
+4. **Analysis**: Containerized neuroimaging tools, such as *pl-emerald*, execute brain-masking or other modules within Tekton tasks. These containers run in isolated pod environments for reproducibility. 
+5. **Result Export**: Final outputs (NIfTI files, segmentations, logs) are stored in persistent volumes are automatically pushed back to Orthanc once converted back to the DICOM format.
+6. **Monitoring and Logging**: OpenShift provides per-pod logs, while Tekton exposes task-level artifacts, enabling researchers to view detailed provenance for every executions.
 
-The cloud-native workflow completes a full cycle of data ingestion, preprocessing, and output storage. This served as the foundational pipeline used for interoperabiltiy testing and translation.
+The pipeline completes a full cycle of data ingestion, conversion, analysis, and output storage. This serves as the foundational reference workflow used for testing and validating cross-platform translations.
 
-Our translator was built to export Tekton pipeline definitions into formats such as Argo, SLURM batch scripts, or ChRIS YAML, enabling use across multiple environments. This 
+##### 4.1.1 Multi-User or Concurrency Model
+To support multiple studies or users submitting data concurrently:
+* Tekton automatically generates unique PipelineRun and TaskRun CRDs, ensuring each workflow execution is isolated.
+* Workspaces backed by PVCs provide dedicated storage for each run
+* Orthanc remains stateless with respect to pipeline execution, storing only DICOM series and not pipeline state.
 
-#### Design Implications and Discussion 
-* **Containerization**: Packaging software such as FreeSurfer and preprocessing steps in containers ensures portability and computational reproducibility. This avoids dependency conflicts and allows the same pipeline to run consistently across diverse environments, from research clusters to cloud platforms.
-* **Tekton Pipelines**: Using Tekton allows the team to represent complex neuroimaging workflows as DAGs. This provides modularity and automation, but more importantly, it improves interoperability in a domain where most workflows are ad hoc and non-standardized. Tektok’s cloud-native standards make pipelines easier to share, adapt, and integrate across teams and institutions, which is particularly valuable in neuroimaging where workflows are often highly specialized and fragmented.
-* **PACS Integration**: The solution is designed to interface with PACS (Picture Archiving and Communication System), the DICOM (Digital Imaging and Communications in Medicine) standard widely used in hospitals worldwide. Orthanc can serve as an open-source reference implementation, but the integration approach remains flexible to support other PACS systems, further strengthening interoperability with clinical environments.
-* **Branch Choice**:
-  * Branch A emphasizes usability and accessibility for clinicians and researchers. This requires additional work in UI/UX design and visualization, making pipeline execution and monitoring more approachable.
-  * Branch B emphasizes portability across diverse compute environments (e.g., SLURM HPC clusters). This requires translation logic and validation to ensure that equivalent outputs can be produced across platforms.
-* **Scalability and Computational Reproducibility**: Running on OpenShift with Tekton provides elastic compute for institutions and ensures pipelines can be re-run in consistent environments, a critical requirement for research validity.
-* **Limitations**: The project will not deliver production-ready EMR integration or advanced security features, as the focus is on demonstrating feasibility and workflow integration.
+This design allows the system to scale naturally with user activity and supports parallel runs without modification.
 
-### 5. Acceptance Criteria
+##### 4.1.2 State, Metadata, and Session Handling
+* Tekton runs are stateless, meaning all required metadata (e.g., StudyInstanceUID, SeriesInstanceUID, PatientName) is passed directly into the pipeline from the Lua event listener.
+* Data products and logs are stored in PVCs tied to the pipeline run.
+* Orthanc retains only the imaging objects and identifying metadata.
+
+
+##### 4.1.3 Component Communication
+Communication between components occurs through well-defined interfaces:
+* Orthanc &rarr; Tekton: Lua script sends an authenticated REST POST to trigger a Tekton PipelineRun once the patient series is stabilized.
+* Tekton &rarr; Download Container: Pipelines call Orthanc's REST API to download DICOM series.
+* Tekton &rarr; Convert Container: Pipelines use the *pl-dcm2niix* image to convert the DICOM series to NIfTI
+* Tekton &rarr; Analysis Container: Tools like *pl-emerald* are invoked as container steps within tasks.
+* Tekton &rarr; Convert Container: Pipelines use *pydicom, nibabel, and skimage* to convert the NIfTI file back to DICOM series format, with a sidecar for DICOM metadata.
+* Tekton &rarr; Upload Container: Pipelines call Orthanc's REST API to upload DICOM series.
+
+##### 4.1.4 Connection to Interoperability and the Final Deliverable
+The end-to-end Tekton workflow is not only a functional pipeline but also serves as the canonical specification for the Rosetta Stone translator. By establishing a concrete, validated, cloud-native pipeline:
+* The Tekton YAML provides a structured DAG from which translations are derived.
+* The workflow ensures that pipeline logic is deterministic and portable.
+* The workflow becomes a testbed for validating generated Snakemake, SLURM, Nextflow, Argo, WDL, ChRIS, and SGE equivalents.
+
+Thus, the cloud-native deployment is both an instructional example and the foundation for cross-system interoperabilty.
+
+#### 4.2 Design Implications and Discussion
+The architectural design described in Section 4.1 carries several important implications for portability, scalability, and long-term maintainability of neuroimaging workflows. The discussion below outlines the rationale behind the major choices made in the implementation and how these decisions support the project’s goals of reproducibility and interoperability.
+
+##### **Containerization**
+Packaging the workflow components, including DICOM-to-NIfTI conversion utilities and analysis modules like pl-emerald, into containers ensures that every step of the pipeline executes in a controlled, consistent environment. This eliminates dependency conflicts that are common in neuroimaging workflows, enables deterministic re-execution, and allows the same pipeline to run on OpenShift clusters, local workstations, and HPC systems. The isolation between container steps also aligns with the multi-user model described in Section 4.1.1, preventing conflicts in shared environments.
+
+##### **Tekton Pipelines**
+Tekton provides a Kubernetes-native way of expressing workflows as explicit DAGs through Custom Resource Definitions. This structure offers modularity, transparent task-level execution, and clear provenance. The stateless execution model (Section 4.1.2) means pipeline runs can be easily repeated or parallelized, and Tekton’s separation of tasks into pods reinforces fault isolation. Importantly, Tekton’s strongly defined workflow representation also forms the basis for the Rosetta Stone translator, enabling consistent conversion of pipeline logic into other workflow formats used in HPC and cloud systems; This is particularly valuable in neuroimaging where workflows are often highly specialized and fragmented.
+
+##### **PACS Integration and Data Ingestion Strateguy **
+The solution is designed to interface with PACS (Picture Archiving and Communication System), the DICOM (Digital Imaging and Communications in Medicine) standard widely used in hospitals worldwide.
+
+Integrating Orthanc as the imaging entry point enables compatibility with DICOM-based clinical systems while keeping the architecture lightweight and research-friendly. Using Orthanc’s REST API for series downloads (Section 4.1.3) provides a simple, transport-agnostic mechanism for retrieving imaging data. The Lua-based event trigger creates an automated workflow that responds directly to new incoming studies, which is a common requirement in clinical and research imaging environments. The design is flexible enough to swap Orthanc for another PACS or data source without altering the pipeline structure.
+
+##### Scalability and Computational Reproducibility
+Running pipelines on OpenShift provides elastic scaling and workload isolation by default. Because each PipelineRun executes in its own pod(s) and uses its own workspace PVC (Section 4.1.1), multiple users can submit studies concurrently without interference. This isolation also enhances reproducibility: rerunning a pipeline with the same inputs and container versions produces identical outputs, a critical property for scientific workflows where reproducibility is a foundational requirement.
+
+##### Interoperability and Motivation for the Rosetta Stone Translator
+The cloud-native workflow developed in this project serves as both an operational pipeline and a canonical model for translation. Many research teams rely on heterogeneous systems—SLURM, Snakemake, WDL/Cromwell, Argo, Nextflow, ChRIS. Manually rewriting pipelines across these platforms is slow and error-prone. By designing the Tekton workflow with explicit tasks, parameters, and workspaces, the pipeline becomes a well-defined source-of-truth suitable for conversion into other workflow specifications. The Rosetta Stone translator builds on this clarity, improving portability across institutional boundaries and enabling workflows to move fluidly between cloud and HPC environments.
+
+##### Limitations and Scope Boundaries
+The system focuses on feasibility and reproducibility rather than production deployment. It does not implement EMR integration, large-scale image archival workflows, or advanced clinical UI features. Security, auditing, and medical compliance (HIPAA, audit trails) are not addressed in depth, as the environment is intended for research, not clinical operations. These limitations define a clear and reasonable boundary for the project’s scope while leaving room for future extensions.
+
+### 6. Why these Technologies Were Chosen
+#### Kubernetes / OpenShift
+* Industry-standard container orchestration
+* Namespaces and RBAC simplify multi-team research environments
+* Built-in monitoring, logs, and scaling
+
+#### Tekton Pipelines
+* Cloud-native, Kubernetes-native workflow engine
+* Represents pipelines as CRDs—supports modular DAGs
+* Ideal for reproducible computations and event-driven workflows
+
+#### Orthanc
+* Lightweight, open-source DICOM server
+* Easily customizable via Lua scripting
+* Perfect for research environments without enterprise PACS access
+
+#### FNNDSC Containers (pl-emerald, pl-dcm2niix)
+* Well-maintained neuroimaging tools
+* Designed for container-based execution
+
+#### Rosetta Stone Translator
+* Research environments vary wildly (HPC &rarr; cloud &rarr; hybrid)
+* Enables portability and reproducibility across institutions
+* Reduces time spent rewriting pipelines by hand
+
+### 6. Acceptance Criteria
 Our minimum goal is to demonstrate execution of neuroimaging research software on OpenShift using Tekton Pipelines:
 * Orthanc (open-source medical imaging database) is successfully deployed on OpenShift with MRI data being retrieved and passed to the pipeline.
 * A user can upload or access MRI data within the OpenShift environment.
@@ -345,8 +414,8 @@ Minimum goal achievements:
 Extended goal achievements:
 * A working Rosetta translation tool capable of coverting Tekton pipelines into multiple workflow formats with a validated example (SGE tested via job submission, rest are validated syntactically)
 
-### 6. Release Planning
-This project was delivered through a series of incremental sprints, systematically building toward the core goal of enabling neuroscience research pipelines to run reproducibly on cloud-native infrastructure (OpenShift + Tekton), and then expanding the scoep to achieve cross-platform workflow execution.
+### 7. Release Planning
+This project was delivered through a series of incremental sprints, systematically building toward the core goal of enabling neuroscience research pipelines to run reproducibly on cloud-native infrastructure (OpenShift + Tekton), and then expanding the scope to achieve cross-platform workflow execution.
 
 Each sprint produced a functional release wutg demonstrable functionality, allowing for course correction and alignment with mentor expectations.
 
