@@ -65,6 +65,12 @@ oc create configmap orthanc-scripts \
 **Recommendation**
 Edit `helm-orthanc.sh` before running it. Customize the release name and route so your deployment does not conflict with others.
 
+Go to the correct directory:
+```
+cd ..
+cd scripts
+```
+
 Deploy Orthanc by running:
 ```
 ./helm-orthanc.sh
@@ -84,6 +90,13 @@ Once the pod is running, Orthanc is ready.
 --- 
 
 ## 4. Apply the Tekton Pipeline
+
+Go to back the original directory:
+```
+cd ..
+cd Plugin
+```
+
 Apply the pipeline definition:
 ```
 oc apply -f tekton.yaml
