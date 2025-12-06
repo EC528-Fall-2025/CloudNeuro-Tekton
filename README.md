@@ -11,6 +11,9 @@
 * [Sprint 2 Demo Video](https://youtu.be/zQTAtZsyRKE) | [Sprint 2 Slides](https://docs.google.com/presentation/d/1-xbEBPg6GZEJfzY3CbQVmoMvFs2EpyrgMJETLsXBBCY/edit?usp=drivesdk)
 * [Sprint 1 Demo Video](https://youtu.be/uLCBCPnanuE) | [Sprint 1 Slides](https://docs.google.com/presentation/d/1-ALj9ChKAheM6dkttzGoUHoqeJwRiWuEvDUVb_fA2Dg/edit?usp=sharing)
 
+### Summary
+We built a fully automated, cloud-native neuroimaging workflow on OpenShift—capable of receiving DICOM data, triggering Tekton pipelines, performing NIfTI conversion and analysis, and returning results to a PACS, and developed a “Rosetta Stone” translator that converts these Tekton workflows into multiple alternative workflow languages for cross-platform interoperability.
+
 ### Problem Statement
 While neuroimaging research produces software tools with the potential to improve clinical outcomes and reduce physicians’ workload, the inefficiencies in usability and integration hinders the realization of this potential. Existing proprietary automation and AI platforms are prohibitively expensive, often requiring not only steep licensing feeds but also in-house developers to customize them. Even when available, such tools impose steep learning curves and disrupt established clinical routines, leaving busy clinicians unable to adopt them. Usability and seamless integration are therefore essential prerequisites for translating research advances into practice.
 
