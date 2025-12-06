@@ -5,7 +5,6 @@ set -e
 NAMESPACE="chris-students-c9344e"
 RELEASE_NAME="orthanc"
 CHART_REPO_URL="https://github.com/FNNDSC/charts.git"
-CHART_DIR="charts/charts/orthanc"
 
 # 1) Install Helm
 echo " Checking Helm installation..."
@@ -44,7 +43,9 @@ popd
 
 # 5) Deploy Orthanc via Helm
 echo " Installing Orthanc Helm chart..."
-helm upgrade --install "$RELEASE_NAME" "$CHART_DIR" -f values.yaml
+helm upgrade --install "$RELEASE_NAME" fnndsc/orthanc \
+-f values.yaml \
+-n "$NAMESPACE"
 
 echo " Waiting for Orthanc pod to be ready..."
 oc rollout status deployment/$RELEASE_NAME -n "$NAMESPACE"
