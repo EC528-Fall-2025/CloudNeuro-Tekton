@@ -142,19 +142,42 @@ The goal of this setup is to give you a reproducible environment—whether you a
 
 1. **Deploy Orthanc on OpenShift (Picture Archiving and Communication System/PACS)**
 
-Orthanc is our database, and source of truth for medical data whether it is a DICOM file or a NIFTI file. You can access our currently hosted Orthanc service [here](https://orthanc-chris.apps.shift.nerc.mghpcc.org/ui/app/#/).
+   Orthanc is our database, and source of truth for medical data whether it is a DICOM file or a NIFTI file. You can access our currently hosted Orthanc service [here](https://orthanc-chris.apps.shift.nerc.mghpcc.org/ui/app/#/).
 
-To host your own Orthanc instance, this step only needs to be done **once**, for replication purposes additional instructions are provided below. 
+   To host your own Orthanc instance, this step only needs to be done **once**, for replication purposes additional instructions are provided below. 
 
-   - Prereq: `oc` logged into a cluster with rights to create namespaces/objects.
-   - Create a project/namespace (e.g., `oc new-project orthanc`).
-   - Apply manifest or use Helm helper:
-     ```bash
-     oc apply -f scripts/orthanc.yaml
-     oc apply -f scripts/orthanc_config.yaml
-     # OR Helm wrapper
-     ./scripts/helm-orthanc.sh
-     ```
+      - Prereq: `oc` logged into a cluster with rights to create namespaces/objects.
+      - Create a project/namespace (e.g., `oc new-project orthanc`).
+      - Apply manifest or use Helm helper:
+      **Use the Helm wrapper script (recommended)**
+         This script:
+         * Switches to the correct OpenShift namespace
+         * Installs / upgrades the Orthanc Helm release
+         * Applies your helm-orthanc-values.yaml
+         * Creates (or reuses) the OpenShift Route
+         * Waits for the deployment to stabilize
+      ```bash
+         # NOTE: edit namespace in this script
+         # Helm wrapper
+         ./scripts/helm-orthanc.sh
+      ```
+      **Manual Helm install**
+         If you prefer to run the equivalent commands directly:
+      ```bash
+         # Add chart repo (only needed once)
+         helm repo add fnndsc https://fnndsc.github.io/charts
+         helm repo update
+
+         # Deploy or upgrade Orthanc
+         helm upgrade --install orthanc fnndsc/orthanc \
+         -f scripts/helm-orthanc-values.yaml \
+         -n <namespace>
+      ```
+      Expose the route (only first time):
+      ```bash
+      oc expose svc v-orthanc --port=http -n <namespace>
+      ```
+
    - Confirm pod/service: `oc get pods,svc` in the namespace; port-forward or expose as needed.
 
 2. **Deploy Tekton pipeline on OpenShift**
