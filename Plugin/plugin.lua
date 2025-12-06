@@ -47,19 +47,26 @@ function OnStoredInstance(instanceId, tags, metadata, origin)
   local studyId   = tags["StudyID"]
   local SOPClassUID = tags["SOPClassUID"]
 
+  -- Check if series was triggered before
   if triggered_series[seriesId] then
-    -- Check if series still exists in Orthanc
-    local exists = pcall(RestApiGet, '/series/' .. seriesId)
-    if exists then
-      log("Series " .. seriesId .. " already triggered; skipping.")
-      return
-    else
-      -- Series was deleted, remove from cache
-      log("Series " .. seriesId .. " was deleted, allowing re-trigger.")
+    -- Fetch series information to determine if it still exists
+    local series_str = RestApiGet('/series/' .. seriesId)
+
+    -- Orthanc returns JSON {"error": ...} and HTTP 404 when missing
+    local ok, series_json = pcall(ParseJson, series_str)
+
+    if (not ok) or (series_json and series_json["Error"]) then
+      -- Series deleted → allow redo
+      log("Series " .. seriesId .. " appears deleted; allowing re-trigger.")
       triggered_series[seriesId] = nil
       save_triggered()
+    else
+      -- Series still exists → skip
+      log("Series " .. seriesId .. " already triggered and still exists; skipping.")
+      return
     end
   end
+
 
   triggered_series[seriesId] = true
   save_triggered()
