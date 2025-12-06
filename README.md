@@ -127,7 +127,7 @@ Avaliable Targets:
     ```
     ###### Sungrid
     ```bash
-    uv run python -m tektonx.cli examples/pipeline-complete.yaml --target sungrind --out /tmp/sge-task.sh
+    uv run python -m tektonx.cli examples/pipeline-complete.yaml --target sungrid --out /tmp/sge-task.sh
     ```
     ###### Slurm
     ```bash
