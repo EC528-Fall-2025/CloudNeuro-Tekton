@@ -179,18 +179,56 @@ spec:
         nib.save(masked_img, out_path)
         print(f"Saved masked volume: {out_path}")
 
-    # # Step 3: Inspect DICOM metadata (sanity check)
-    # - name: inspect-dicom
-    #   image: python:3.11-slim
-    #   script: |
-    #     #!/usr/bin/env sh
-    #     set -eux
-    #     pip install --no-cache-dir pydicom
-    #     python3 - <<'EOF'
+        
+        # Compute Brain Volume
+        
+        # Get voxel dimensions from header (more reliable than affine determinant)
+        voxel_dims = mri_img.header.get_zooms()[:3]  # (x, y, z) in mm
+        voxel_volume_mm3 = np.prod(voxel_dims)  # Volume of one voxel
+        
+        # Count non-zero voxels in mask
+        num_voxels = np.sum(mask_data > 0)
+        
+        # Calculate brain volume
+        brain_volume_mm3 = voxel_volume_mm3 * num_voxels
+        brain_volume_cm3 = brain_volume_mm3 / 1000  # Convert to cm³
+        
+        print(f"Voxel dimensions (mm): {voxel_dims}")
+        print(f"Voxel volume (mm³): {voxel_volume_mm3:.4f}")
+        print(f"Number of brain voxels: {num_voxels:,}")
+        print(f"\nBrain Volume Results:")
+        print(f"  - {brain_volume_mm3:,.2f} mm³")
+        print(f"  - {brain_volume_cm3:.2f} cm³")
+        print("="*60 + "\n")
+        
+        # Save to file for pipeline access
+        volume_file = "$(workspaces.shared.path)/EMERALD/brain_volume.txt"
+        with open(volume_file, "w") as f:
+            f.write(f"Brain Volume: {brain_volume_mm3:.2f} mm³\n")
+            f.write(f"Brain Volume: {brain_volume_cm3:.2f} cm³\n")
+            f.write(f"Raw value (mm³): {brain_volume_mm3:.4f}\n")
+            f.write(f"Voxel count: {num_voxels}\n")
+            f.write(f"Voxel dimensions: {voxel_dims}\n")
+        
+        print(f"Brain volume saved to: {volume_file}")
+        
+        # Also save as JSON for easier parsing
+        import json
+        volume_json = "$(workspaces.shared.path)/EMERALD/brain_volume.json"
+        volume_data = {
+            "brain_volume_cm3": float(brain_volume_cm3),
+            "brain_volume_mm3": float(brain_volume_mm3),
+            "voxel_count": int(num_voxels),
+            "voxel_dimensions_mm": [float(x) for x in voxel_dims],
+            "voxel_volume_mm3": float(voxel_volume_mm3)
+        }
+        with open(volume_json, "w") as f:
+            json.dump(volume_data, f, indent=2)
+        
+        print(f"Brain volume JSON saved to: {volume_json}")
+        EOF
 
-    #     import pydicom
-    #     ds = pydicom.dcmread("$(workspaces.shared.path)/$(params.patientId)/$(params.studyId)/$(params.seriesId)/IM_0001.dcm")
-    #     print(ds)
+
 
 ---
 
@@ -245,6 +283,36 @@ spec:
         
         print(f"Loading NIFTI from: {nifti_path}")
         print(f"Reference DICOM directory: {original_dicom_dir}")
+
+        # Read Brain Volume
+        volume_file = os.path.join(workspace, "EMERALD", "brain_volume.txt")
+        brain_volume_mm3 = None
+        brain_volume_cm3 = None
+        
+        try:
+            with open(volume_file, 'r') as f:
+                lines = f.readlines()
+                # Parse the text file
+                for line in lines:
+                    if 'mm³' in line or 'mm3' in line:
+                        # Extract number from "Brain Volume: 1234567.89 mm³"
+                        parts = line.split(':')
+                        if len(parts) > 1:
+                            value_part = parts[1].strip().split()[0]  # Get first number
+                            brain_volume_mm3 = float(value_part)
+                    elif 'cm³' in line or 'cm3' in line:
+                        parts = line.split(':')
+                        if len(parts) > 1:
+                            value_part = parts[1].strip().split()[0]
+                            brain_volume_cm3 = float(value_part)
+            
+            if brain_volume_mm3:
+                print(f"✓ Loaded brain volume: {brain_volume_mm3:.2f} mm³")
+            else:
+                print("⚠️  Could not parse brain volume from file")
+        except Exception as e:
+            print(f"⚠️  Could not load brain volume: {e}")
+
         
         # Load NIFTI
         nii_img = nib.load(nifti_path)
@@ -414,9 +482,28 @@ spec:
             new_ds.InstanceNumber = slice_idx + 1
             
             # Update series metadata
-            new_ds.SeriesDescription = "AI Brain Mask - EMERALD"
+            if brain_volume_mm3 is not None:
+                new_ds.SeriesDescription = f"AI Brain Mask - EMERALD (Volume: {brain_volume_mm3:.2f} mm³)"
+            else:
+                new_ds.SeriesDescription = "AI Brain Mask - EMERALD"
             new_ds.SeriesNumber = getattr(ref_ds, 'SeriesNumber', 999) + 1000
-            
+
+            # Add Brain Volume to DICOM Metadata
+            if brain_volume_mm3 is not None:
+              new_ds.add_new([0x0011, 0x0010], 'LO', 'EMERALD_AI')
+
+              # Brain volume in mm³ - use string format for DS
+              new_ds.add_new([0x0011, 0x1001], 'DS', f"{brain_volume_mm3:.2f}")
+              new_ds[0x0011, 0x1001].private_creator = 'EMERALD_AI'
+              
+              # Brain volume in cm³ (if available)
+              if brain_volume_cm3 is not None:
+                  new_ds.add_new([0x0011, 0x1002], 'DS', f"{brain_volume_cm3:.2f}")
+                  new_ds[0x0011, 0x1002].private_creator = 'EMERALD_AI'
+              
+              # Add to ImageComments for easy visibility
+              new_ds.ImageComments = f"Brain Volume: {brain_volume_mm3:.2f} mm³ - EMERALD AI"
+              
             # Update timestamps
             now = datetime.now()
             new_ds.SeriesDate = now.strftime('%Y%m%d')
@@ -437,6 +524,10 @@ spec:
         
         print(f"\n Successfully created {num_slices} DICOM slices in {output_dir}")
         print(f"Series UID: {new_series_uid}")
+        if brain_volume_mm3 is not None:
+            print(f"Brain Volume embedded: {brain_volume_mm3:.2f} mm³")
+        else:
+            print("⚠️  No brain volume data embedded")
         
         # Verify first slice
         verify_ds = pydicom.dcmread(os.path.join(output_dir, "slice_0000.dcm"))
@@ -446,11 +537,13 @@ spec:
         print(f"  Value range: [{verify_array.min()}, {verify_array.max()}]")
         print(f"  Bits Stored: {verify_ds.BitsStored}")
         print(f"  Window: C={verify_ds.WindowCenter}, W={verify_ds.WindowWidth}")
+        if brain_volume_mm3 is not None:
+            vol_tag = verify_ds.get([0x0011, 0x1001], None)
+            if vol_tag:
+                print(f"  Brain Volume in metadata: {vol_tag.value} mm³")
         EOF
 
         
-        
-
 ---
 
 # TASK 5: Upload processed DICOM back to Orthanc
