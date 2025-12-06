@@ -12,7 +12,7 @@
 * [Sprint 1 Demo Video](https://youtu.be/uLCBCPnanuE) | [Sprint 1 Slides](https://docs.google.com/presentation/d/1-ALj9ChKAheM6dkttzGoUHoqeJwRiWuEvDUVb_fA2Dg/edit?usp=sharing)
 
 ### Summary
-We built a fully automated, cloud-native neuroimaging workflow on OpenShift—capable of receiving DICOM data, triggering Tekton pipelines, performing NIfTI conversion and analysis, and returning results to a PACS, and developed a “Rosetta Stone” translator that converts these Tekton workflows into multiple alternative workflow languages for cross-platform interoperability.
+In this project, we built an automated cloud-native neuroimaging pipeline on OpenShift and developed a workflow translation tool ("Rosetta Stone") that converts Tekton pipelines into multiple workflow languages (SLURM, Snakemake, Argo, Nextflow, WDL, etc.), improving reproducibility and interoperability across diverse compute environments.
 
 ### Problem Statement
 While neuroimaging research produces software tools with the potential to improve clinical outcomes and reduce physicians’ workload, the inefficiencies in usability and integration hinders the realization of this potential. Existing proprietary automation and AI platforms are prohibitively expensive, often requiring not only steep licensing feeds but also in-house developers to customize them. Even when available, such tools impose steep learning curves and disrupt established clinical routines, leaving busy clinicians unable to adopt them. Usability and seamless integration are therefore essential prerequisites for translating research advances into practice.
@@ -149,7 +149,7 @@ Avaliable Targets:
 
 ### Additional Setup Information
 
-This guide provides the essential steps required to deploy the core infrastructure components used in our ChRIS-based processing environment. These components include Orthanc, which serves as our database/system of record for medical imaging data (DICOM and NIfTI), and the Tekton-based workflow pipelines that orchestrate end-to-end processing within OpenShift.
+This guide provides the essential steps required to deploy the core infrastructure components used in our OpenShift-based pipeline environment. These components include Orthanc, which serves as our database/system of record for medical imaging data (DICOM and NIfTI), and the Tekton-based workflow pipelines that orchestrate end-to-end processing within OpenShift.
 
 The goal of this setup is to give you a reproducible environment—whether you are deploying the stack for development, testing, or full production. The instructions below assume you have access to an OpenShift cluster and the necessary permissions to create namespaces, deploy workloads, and run pipelines. For most users, each component only needs to be deployed once, with additional notes provided for replication or customization.
 
@@ -218,6 +218,9 @@ TODO TO SELF: THIS CAN BE ADDED IN A FUTURE WORKS SECTION
 * Usability and Clinical Accessibility  – Automation in the cloud is only the first step. For clinicians to truly benefit, tools must be intuitive, low-friction, and aligned with existing workflows. Future work may focus on building a user-facing platform for triggering pipeline execution, monitoring progress, and visualizing outputs. This layer transforms containerized pipelines into a usable clinical tool, addressing the steep learning curves and workflow disruptions that currently prevent adoption.
 
 ### 2. Users/Personas Of The Project
+
+**This project is not intended for clinicians directly, but for research computing teams and developers who integrate neuroimaging pipelines into cloud or HPC environments.**
+
 Neuroimaging research is both computationally intensive and requires advanced technical knoledge of the Linux command-line (CLI). Cloud-native tools such as Kubernetes and Tekton provide opportunities for elastic compute and integration with clinical systems.
 
 While our original proposed project focused on building a tool targeting clinicians, based on actual project development:
@@ -295,7 +298,7 @@ Certain elements are out of scope for this project. We do not propose the follow
 
 ### 4. Solution Concept
 
-This project implements a cloud-native neuroimaging workflow using OpenShfit, Orthanc, and Tekton, and extends it withj a workflow translation tool that improves portability across comptue environments. The solution combines containerization, event-driven orchestration, and workflow modeling to make neuroimaging pipelines reproducible and interoperable within a cloud-native environment.
+This project implements a cloud-native neuroimaging workflow using OpenShift, Orthanc, and Tekton, and extends it withj a workflow translation tool that improves portability across comptue environments. The solution combines containerization, event-driven orchestration, and workflow modeling to make neuroimaging pipelines reproducible and interoperable within a cloud-native environment.
 
 #### 4.1 High-Level Architecture
 **Global Architectural Structure of the Project:**
@@ -367,7 +370,7 @@ The cloud-native workflow developed in this project serves as both an operationa
 ##### Limitations and Scope Boundaries
 The system focuses on feasibility and reproducibility rather than production deployment. It does not implement EMR integration, large-scale image archival workflows, or advanced clinical UI features. Security, auditing, and medical compliance (HIPAA, audit trails) are not addressed in depth, as the environment is intended for research, not clinical operations. These limitations define a clear and reasonable boundary for the project’s scope while leaving room for future extensions.
 
-### 6. Why these Technologies Were Chosen
+### 5. Why these Technologies Were Chosen
 #### Kubernetes / OpenShift
 * Industry-standard container orchestration
 * Namespaces and RBAC simplify multi-team research environments
@@ -420,7 +423,7 @@ Extended goal achievements:
 ### 7. Release Planning
 This project was delivered through a series of incremental sprints, systematically building toward the core goal of enabling neuroscience research pipelines to run reproducibly on cloud-native infrastructure (OpenShift + Tekton), and then expanding the scope to achieve cross-platform workflow execution.
 
-Each sprint produced a functional release wutg demonstrable functionality, allowing for course correction and alignment with mentor expectations.
+Each sprint produced a functional release with demonstrable functionality, allowing for course correction and alignment with mentor expectations.
 
 ### Release Calendar
 
