@@ -35,16 +35,10 @@ if ! oc project "$NAMESPACE"; then
   exit 1
 fi
 
-# 4) Build chart dependencies
-echo " Building Helm dependencies..."
-pushd "$CHART_DIR"
-helm dependency build
-popd
-
 # 5) Deploy Orthanc via Helm
 echo " Installing Orthanc Helm chart..."
 helm upgrade --install "$RELEASE_NAME" fnndsc/orthanc \
--f values.yaml \
+-f helm-orthanc-values.yaml \
 -n "$NAMESPACE"
 
 echo " Waiting for Orthanc pod to be ready..."
