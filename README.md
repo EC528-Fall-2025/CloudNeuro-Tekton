@@ -261,6 +261,8 @@ Responsibilities:
 The scope of this project is to demonstrate how neuroimaging pipelines can be executed reproducibly in cloud-native using Tekton on OpenShift, and provide a translation mechanism for interoperability across alternative workflow systems.
 
 #### Core Features Implemented:
+
+#### Cloud-Native Workflow
 * Deployment of Orthanc on OpenShift with autentication and sotrage configuration
 * A consolidated pipelien defined in a single Tekton YAML with stages for:
    * Downloading a DICOM series from Orthanc
@@ -268,8 +270,16 @@ The scope of this project is to demonstrate how neuroimaging pipelines can be ex
    * Running the *pl-emerald* brain masking module
    * Reappending the DICOM series metadata and converting the NIfTI file to DICOM
    * Reuploading the processed DICOM series back to Orthanc
+
+#### Event-Driven Automation
 * A Lua script acting as an Orthanc event listener that triggers the Tekton pipeline automatically when a new study is uploaded
+* Enabling "hands-off" workflow automation
+
+#### Workflow Translation (Rosetta Stone)
 * A Rosetta Stone pipeline translator executable, *tektonx*, converting Tekton pipelines into other workflow definition languages (Snakemake, Argo, ChRIS, Nextflow, WDL/Cromwell, SLURM, Sun Grid Engine)
+* Produces runnable / syntactically valid outputs for each system
+
+#### Longevity and Usabilty
 * Clear documentation and instructions for replicating our setup and using the produced toolkit
 
 #### Out-of-Scope
@@ -280,6 +290,7 @@ Certain elements are out of scope for this project. We do not propose the follow
 
 ### 4. Solution Concept
 
+#### 4.1 High-Level Architecture
 **Global Architectural Structure of the Project:**
 The project architecture centers on containerized neuroimaging workflows deployed in Red Hat OpenShift and orchestrated with Tekton pipelines. 
 ![Proposed Solution Architecture](./media/ec528-solution-architecture.png)
@@ -293,7 +304,9 @@ At the high level, the architecture includes the following components:
 5. **Pipeline Orchestration (Tekton)**: Tekton defines and automates the execution of each stage, ensuring reproducibility and consistency across runs.
 6. **Monitoring and Logging**: OpenShift and Tekton provide job monitoring, error logging, and reproducibility verification.
 
-If the team pursues **Branch A**, a web interface will be added to trigger pipelines and visualize results. If the team pursues **Branch B**, a translator will be built to export Tekton pipeline definitions into formats such as Argo, SLURM batch scripts, or ChRIS YAML, enabling use across multiple environments.
+The cloud-native workflow completes a full cycle of data ingestion, preprocessing, and output storage. This served as the foundational pipeline used for interoperabiltiy testing and translation.
+
+Our translator was built to export Tekton pipeline definitions into formats such as Argo, SLURM batch scripts, or ChRIS YAML, enabling use across multiple environments. This 
 
 #### Design Implications and Discussion 
 * **Containerization**: Packaging software such as FreeSurfer and preprocessing steps in containers ensures portability and computational reproducibility. This avoids dependency conflicts and allows the same pipeline to run consistently across diverse environments, from research clusters to cloud platforms.
