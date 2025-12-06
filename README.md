@@ -20,7 +20,7 @@ This fragmentation creates two key problems:
 
 1. **Lack of a reference cloud-native workflow** that shows how end-to-end neuroimaging tasks (e.g., receiving DICOM, converting to NIfTI, running preprocessing modules) can be automated and exected in a modern container-oriented environment.
 
-2. **Lack of interoperability across workflow systems**. Pipelines written for one platform (Tekton, Snakemake, Nextflow, ChRIS, Argo, etc.) cannot easily be reused on another. This blocks inter-team collaboration, as manually rewriting pipelines is a time-consuming and error-prone process.
+2. **Lack of interoperability across workflow systems**. Pipelines written for one platform (Tekton, Snakemake, Nextflow, ChRIS, Argo, Sun Grid Engine, etc.) cannot easily be reused on another. This blocks inter-team collaboration, as manually rewriting pipelines is a time-consuming and error-prone process.
 
 ## Get Started
 1. **Prereqs**
@@ -183,9 +183,9 @@ To host your own Orthanc instance, this step only needs to be done **once**, for
 For OpenShift environment setup details see `docs/setup.md`; for Orthanc/Tekton manifests see `scripts/`.
 
 ### 1. Vision and Goals Of The Project
-Our minimum goal was to demonstrate the execution of neuroimaging research software, such as FreeSurfer or PL-Emerald, on OpenShift using Tekton/OpenShift pipelines. This remained as the foundation of our project:  packaging existing neuroimaging tools so they can run efficiently and reliably in a cloud-native environment, thereby automating pipeline execution and facilitating computational reproducibility through consistent containerized environments.
+Our minimum goal was to demonstrate the execution of neuroimaging research software, such as FreeSurfer or pl-Emerald, on OpenShift using Tekton/OpenShift pipelines. This remained as the foundation of our project:  packaging existing neuroimaging tools so they can run efficiently and reliably in a cloud-native environment, thereby automating pipeline execution and facilitating computational reproducibility through consistent containerized environments.
 
-As the project developed, the primary goal evolved into creating a reference cloud-native neuroimaging workflow that can:
+As the project developed, the minimum goal evolved into creating a reference cloud-native neuroimaging workflow that can:
 * Receive imaging data from a DICOM source (Orthanc)
 * Automatically trigger pipeline execution upon DICOM series upload
    1. Perform DICOM &rarr; NIfTI conversion
@@ -225,7 +225,7 @@ The system is a **reference cloud-native deployment** and **toolkit** intended f
 Neuroimaging research is both computationally intensive and requires advanced technical knowledge of the Linux command-line. Cloud-native tools such as Kubernetes and Tekton provide opportunities for elastic compute and integration with clinical systems. The personas differ based on those who are more interested in using cloud-native workflows, or interoperability. 
 
 #### **Persona 1**: Research Scientist
-* Role Description: A researcher who designs and interprest MRI analysis pipelines, but needs portability across systems with varying compute environments (e.g., SLURM, YAML, Argo Workflow, or ChRIS), especially when the system does not natively support Tekton.
+* Role Description: A researcher who designs and interprets MRI analysis pipelines, but needs portability across systems with varying compute environments (e.g., SLURM, YAML, Argo Workflow, or ChRIS), especially when a collaborator'ss system does not natively support Tekton.
 
 Key characteristics:
 * Skilled in medicine, not Linux pipelines
@@ -265,8 +265,8 @@ The scope of this project is to demonstrate how neuroimaging pipelines can be ex
 #### Core Features Implemented:
 
 #### Cloud-Native Workflow
-* Deployment of Orthanc on OpenShift with autentication and sotrage configuration
-* A consolidated pipelien defined in a single Tekton YAML with stages for:
+* Deployment of Orthanc on OpenShift with authentication and storage configuration
+* A consolidated pipeline defined in a single Tekton YAML with stages for:
    * Downloading a DICOM series from Orthanc
    * Converting the series to NIfTI
    * Running the *pl-emerald* brain masking module
@@ -278,7 +278,7 @@ The scope of this project is to demonstrate how neuroimaging pipelines can be ex
 * Enabling "hands-off" workflow automation
 
 #### Workflow Translation (Rosetta Stone)
-* A Rosetta Stone pipeline translator executable, *tektonx*, converting Tekton pipelines into other workflow definition languages (Snakemake, Argo, ChRIS, Nextflow, WDL/Cromwell, SLURM, Sun Grid Engine)
+* A Rosetta Stone pipeline translator executable, *tektonx*, converting Tekton pipelines into other workflow definition languages (Bash, Make, Snakemake, Argo, ChRIS, Nextflow, WDL/Cromwell, SLURM, Sun Grid Engine)
 * Produces runnable / syntactically valid outputs for each system
 
 #### Longevity and Usabilty
