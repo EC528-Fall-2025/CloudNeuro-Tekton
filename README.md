@@ -81,7 +81,7 @@ Avaliable Targets:
 
     ###### GNU Make
     ```bash
-    uv run python -m tektonx.cli examples/pipeline-complete.yaml --target make --out dist/Makefile
+    uv run python -m tektonx.cli examples/curl-test.yaml --target make --out dist/Makefile
     mkdir -p /tmp/gnu_make_test
     WORKDIR=/tmp/gnu_make_test make -f dist/Makefile
 
