@@ -3,7 +3,7 @@
 route:
   enabled: true
   # !!! CHANGEME: `route.host` must be unique for each instance of Orthanc!!!
-  host: km-was-here.apps.shift.nerc.mghpcc.org
+  host: orthanc.apps.shift.nerc.mghpcc.org
   # Enable HTTPS
   tls:
     termination: edge
@@ -40,12 +40,12 @@ persistence:
 #
 # Helm will convert the YAML values below to a JSON file expected by Orthanc.
 config:
-  Name: Jennings Was Here
+  Name: ec528-Orthanc
 
   # Hard-coded list of users who may login to Orthanc.
   RegisteredUsers:
     # <username>: <password>
-    jennings: jenningswashere
+    ec528: ec528-orthanc
 
   plugins:
     - /usr/local/share/orthanc/plugins/libPythonPlugin.so
@@ -59,8 +59,6 @@ config:
   OrthancExplorer2:
     IsDefaultOrthancUI: true
     Theme: "dark"
-
-# Everything below here is unnecessary, but included for your information.
 
 # oauth2 is a modern authentication protocol which enables single-sign-on (SSO)
 # e.g. with Google, GitHub, Discord, ...
@@ -87,13 +85,3 @@ extraVolumes:
   - name: orthanc-scripts
     configMap:
       name: orthanc-scripts
-
-
-# extraVolumes:
-#   - name: orthanc-plugin
-#     configMap:
-#       name: orthanc-plugin
-# extraVolumeMounts:
-#   - name: orthanc-plugin
-#     mountPath: /usr/local/share/orthanc/plugins/orthanc_plugin_test.py
-#     subPath: orthanc_plugin_test.py
