@@ -2,6 +2,8 @@
 
 ## To the Cloud: Neuroscience Pipelines on Tekton
 
+### Table of Contents TODO
+
 ### DEMO VIDEO + SLIDES
 * [Sprint 5 Demo Video](https://youtu.be/peyusJfjmyU) | [Sprint 5 Slides](https://docs.google.com/presentation/d/1mms0mldRULZ2PqBz8T1U1MMKErzfO6i0rrrQowGttq8/edit?usp=sharing)
 * [Sprint 4 Demo Video](https://youtu.be/h3mNj9MzPz4) | [Sprint 4 Slides](https://docs.google.com/presentation/d/1597sFiXeIIOFcn6FjS6FHKkMCFbVPSVJSeMGVflTo8c/edit?usp=sharing)
@@ -12,7 +14,7 @@
 ### Problem Statement
 While neuroimaging research produces software tools with the potential to improve clinical outcomes and reduce physicians’ workload, the inefficiencies in usability and integration hinders the realization of this potential. Existing proprietary automation and AI platforms are prohibitively expensive, often requiring not only steep licensing feeds but also in-house developers to customize them. Even when available, such tools impose steep learning curves and disrupt established clinical routines, leaving busy clinicians unable to adopt them. Usability and seamless integration are therefore essential prerequisites for translating research advances into practice.
 
-Cloud-native platforms like Kubernetes and Tekton present an opportunity to modernize this ecosystem by offering scalable compute, standardized inferfaces, and event-driven automation. However, adopting these technologoies in neurosceicen remains difficult: researchers must grapple with containerization, orchestration, and pipline specification languages that vary across institutions and workflow engines.
+Cloud-native platforms like Kubernetes and Tekton present an opportunity to modernize this ecosystem by offering scalable compute, standardized inferfaces, and event-driven automation. However, adopting these technologies in neuroscience remains difficult: researchers must grapple with containerization, orchestration, and pipline specification languages that vary across institutions and workflow engines.
 
 This fragmentation creates two key problems:
 
