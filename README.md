@@ -92,8 +92,13 @@ Available Targets:
    - wdl
    - slurm
    - sungrid
+
+   **macOS example, SLURM**
+   ```bash
+   tektonx examples/hello-task.yaml --target slurm
+   ```
    
-   The example below uses snakemake.
+   **Windows (PowerShell) example, Snakemake**
    ```bash
    uv run python -m tektonx.cli examples/pipeline-complete.yaml --target snakemake
    ```
