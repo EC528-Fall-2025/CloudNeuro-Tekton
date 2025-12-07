@@ -2,19 +2,32 @@
 
 ## To the Cloud: Neuroscience Pipelines on Tekton
 
-### Table of Contents TODO
-
-### DEMO VIDEO + SLIDES
-* [Sprint 5 Demo Video](https://youtu.be/peyusJfjmyU) | [Sprint 5 Slides](https://docs.google.com/presentation/d/1mms0mldRULZ2PqBz8T1U1MMKErzfO6i0rrrQowGttq8/edit?usp=sharing)
-* [Sprint 4 Demo Video](https://youtu.be/h3mNj9MzPz4) | [Sprint 4 Slides](https://docs.google.com/presentation/d/1597sFiXeIIOFcn6FjS6FHKkMCFbVPSVJSeMGVflTo8c/edit?usp=sharing)
-* [Sprint 3 Demo Video](https://youtu.be/Eadwxo6tkok) | [Sprint 3 Slides](https://docs.google.com/presentation/d/14_BMxZWXjEcWHZb7_Ueva3HHOogPLTopwEevkK92Ahg/edit?usp=sharing)
-* [Sprint 2 Demo Video](https://youtu.be/zQTAtZsyRKE) | [Sprint 2 Slides](https://docs.google.com/presentation/d/1-xbEBPg6GZEJfzY3CbQVmoMvFs2EpyrgMJETLsXBBCY/edit?usp=drivesdk)
-* [Sprint 1 Demo Video](https://youtu.be/uLCBCPnanuE) | [Sprint 1 Slides](https://docs.google.com/presentation/d/1-ALj9ChKAheM6dkttzGoUHoqeJwRiWuEvDUVb_fA2Dg/edit?usp=sharing)
-
 ### Summary
 In this project, we built an automated cloud-native neuroimaging pipeline on OpenShift and developed a workflow translation tool ("Rosetta Stone") that converts Tekton pipelines into multiple workflow languages (SLURM, Snakemake, Argo, Nextflow, WDL, etc.), improving reproducibility and interoperability across diverse compute environments.
 
 ![tektonx](./media/tektonx.png)
+
+### Table of Contents
+- [Summary](#summary)
+- [Problem Statement](#problem-statement)
+- [Get Started](#get-started)
+  - [Additional Setup Information](#additional-setup-information)
+- [1. Vision and Goals Of The Project](#1-vision-and-goals-of-the-project)
+- [2. Users/Personas Of The Project](#2-userspersonas-of-the-project)
+- [3. Scope and Features Of The Project](#3-scope-and-features-of-the-project)
+- [4. Solution Concept](#4-solution-concept)
+  - [4.1 High-Level Architecture](#41-high-level-architecture)
+    - [4.1.1 Multi-User or Concurrency Model](#411-multi-user-or-concurrency-model)
+    - [4.1.2 State, Metadata, and Session Handling](#412-state-metadata-and-session-handling)
+    - [4.1.3 Component Communication](#413-component-communication)
+    - [4.1.4 Connection to Interoperability and the Final Deliverable](#414-connection-to-interoperability-and-the-final-deliverable)
+  - [4.2 Design Implications and Discussion](#42-design-implications-and-discussion)
+- [5. Why these Technologies Were Chosen](#5-why-these-technologies-were-chosen)
+- [6. Acceptance Criteria](#6-acceptance-criteria)
+- [7. Release Planning](#7-release-planning)
+  - [Release Calendar](#release-calendar)
+- [8. Next Steps & Future Work](#8-next-steps--future-work)
+- [DEMO VIDEO + SLIDES](#demo-video--slides)
 
 ### Problem Statement
 While neuroimaging research produces software tools with the potential to improve clinical outcomes and reduce physicians’ workload, the inefficiencies in usability and integration hinder the realization of this potential. Existing proprietary automation and AI platforms are prohibitively expensive, often requiring not only steep licensing fees but also in-house developers to customize them. Even when available, such tools impose steep learning curves and disrupt established clinical routines, leaving busy clinicians unable to adopt them. Usability and seamless integration are therefore essential prerequisites for translating research advances into practice.
@@ -535,3 +548,10 @@ Future pipelines could incorporate:
 * ML/AI segmentation modules
 
 Extending the reference pipeline improves the utility of the Rosetta Stone translator when translating complex DAGs.
+
+### DEMO VIDEO + SLIDES
+* [Sprint 5 Demo Video](https://youtu.be/peyusJfjmyU) | [Sprint 5 Slides](https://docs.google.com/presentation/d/1mms0mldRULZ2PqBz8T1U1MMKErzfO6i0rrrQowGttq8/edit?usp=sharing)
+* [Sprint 4 Demo Video](https://youtu.be/h3mNj9MzPz4) | [Sprint 4 Slides](https://docs.google.com/presentation/d/1597sFiXeIIOFcn6FjS6FHKkMCFbVPSVJSeMGVflTo8c/edit?usp=sharing)
+* [Sprint 3 Demo Video](https://youtu.be/Eadwxo6tkok) | [Sprint 3 Slides](https://docs.google.com/presentation/d/14_BMxZWXjEcWHZb7_Ueva3HHOogPLTopwEevkK92Ahg/edit?usp=sharing)
+* [Sprint 2 Demo Video](https://youtu.be/zQTAtZsyRKE) | [Sprint 2 Slides](https://docs.google.com/presentation/d/1-xbEBPg6GZEJfzY3CbQVmoMvFs2EpyrgMJETLsXBBCY/edit?usp=drivesdk)
+* [Sprint 1 Demo Video](https://youtu.be/uLCBCPnanuE) | [Sprint 1 Slides](https://docs.google.com/presentation/d/1-ALj9ChKAheM6dkttzGoUHoqeJwRiWuEvDUVb_fA2Dg/edit?usp=sharing)
