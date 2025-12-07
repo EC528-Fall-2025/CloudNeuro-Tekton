@@ -1,78 +1,52 @@
--- Triggers Tekton PipelineRun once per new DICOM series stored in Orthanc
+-- Triggers Tekton PipelineRun exactly once per COMPLETE DICOM series
 
 function log(msg)
   print("[orthanc-trigger] " .. msg)
 end
 
--- Persistent record of triggered series (survives Orthanc restart)
-local triggered_file = "/tmp/triggered_series.json"
-triggered_series = triggered_series or {}
+-- Track which series has already triggered (persisted across restarts)
+local triggered_file = "/tmp/triggered_stable_series.json"
+triggered_stable = triggered_stable or {}
 
--- Load previously triggered series
+-- Load file
 do
   local f = io.open(triggered_file, "r")
   if f then
     local content = f:read("*a")
     f:close()
     local ok, parsed = pcall(ParseJson, content)
-    if ok and parsed then
-      triggered_series = parsed
-    end
+    if ok and parsed then triggered_stable = parsed end
   end
 end
 
 local function save_triggered()
   local f = io.open(triggered_file, "w")
-  f:write(DumpJson(triggered_series))
+  f:write(DumpJson(triggered_stable))
   f:close()
 end
 
-function OnStoredInstance(instanceId, tags, metadata, origin)
-  if origin['RequestOrigin'] == 'Lua' then return end
+function OnStableSeries(seriesId, tags, metadata)
+  log("Series became stable: " .. seriesId)
 
-  log("New DICOM instance stored: " .. instanceId)
-  
-  -- Check if this is an AI-processed instance (to prevent loop)
-  local seriesDesc = tags["SeriesDescription"]
-  if seriesDesc and string.find(seriesDesc, "AI Brain Mask") then
-    log("Skipping AI-processed series: " .. seriesDesc)
+  -- Skip AI-processed series
+  local desc = tags["SeriesDescription"]
+  if desc and string.find(desc, "AI Brain Mask") then
+    log("Skipping AI output series: " .. desc)
     return
   end
 
-  local instance_str = RestApiGet('/instances/' .. instanceId)
-  local instance = ParseJson(instance_str)
-
-  local seriesId  = instance['ParentSeries']
-  local patientId = tags["PatientID"]
-  local studyId   = tags["StudyID"]
-  local SOPClassUID = tags["SOPClassUID"]
-
-  -- Check if series was triggered before
-  if triggered_series[seriesId] then
-    -- Fetch series information to determine if it still exists
-    local series_str = RestApiGet('/series/' .. seriesId)
-
-    -- Orthanc returns JSON {"error": ...} and HTTP 404 when missing
-    local ok, series_json = pcall(ParseJson, series_str)
-
-    if (not ok) or (series_json and series_json["Error"]) then
-      -- Series deleted → allow redo
-      log("Series " .. seriesId .. " appears deleted; allowing re-trigger.")
-      triggered_series[seriesId] = nil
-      save_triggered()
-    else
-      -- Series still exists → skip
-      log("Series " .. seriesId .. " already triggered and still exists; skipping.")
-      return
-    end
-  end
-
-
-  triggered_series[seriesId] = true
+  -- Mark triggered
+  triggered_stable[seriesId] = true
   save_triggered()
-  log("Triggering pipeline for series: " .. seriesId)
 
-  local tekton_url = "https://kubernetes.default.svc/apis/tekton.dev/v1/namespaces/chris-students-c9344e/pipelineruns"
+  log("Triggering Tekton pipeline for stable series: " .. seriesId)
+
+
+  -- Build Tekton payload
+
+  local patientId = tags["PatientID"] or "unknown"
+  local studyId   = tags["StudyID"] or "unknown"
+  local SOPClassUID = tags["SOPClassUID"] or ""
 
   local payload = {
     apiVersion = "tekton.dev/v1",
@@ -84,14 +58,14 @@ function OnStoredInstance(instanceId, tags, metadata, origin)
     spec = {
       pipelineRef = { name = "orthanc-to-better-dicom" },
       params = {
-        { name = "orthancUrl",  value = "https://orthanc-chris.apps.shift.nerc.mghpcc.org" },
+        { name = "orthancUrl", value = "https://orthanc-chris.apps.shift.nerc.mghpcc.org" },
         { name = "orthancAuth", value = "orthanc-720:jennings-minions" },
-        { name = "patientId",   value = patientId or "unknown" },
-        { name = "studyId",     value = studyId or "unknown" },
-        { name = "seriesId",    value = seriesId },
+        { name = "patientId", value = patientId },
+        { name = "studyId", value = studyId },
+        { name = "seriesId", value = seriesId },
         { name = "SOPClassUID", value = SOPClassUID },
-        { name = "pattern",     value = "" },
-        { name = "maskSuffix",  value = "_mask.nii" },
+        { name = "pattern", value = "" },
+        { name = "maskSuffix", value = "_mask.nii" },
       },
       workspaces = {
         { name = "shared", persistentVolumeClaim = { claimName = "dicom-pvc" } }
@@ -99,25 +73,25 @@ function OnStoredInstance(instanceId, tags, metadata, origin)
     }
   }
 
-  local payload_json = DumpJson(payload)
-  local tmp_file = "/tmp/payload.json"
-  local f = io.open(tmp_file, "w")
-  f:write(payload_json)
+  local tmp = "/tmp/payload.json"
+  local f = io.open(tmp, "w")
+  f:write(DumpJson(payload))
   f:close()
 
+
+  -- Kubernetes authentication
   local ftoken = io.open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r")
   local token = ftoken:read("*a")
   ftoken:close()
 
-  os.execute("sleep 2") -- optional delay
+  local url = "https://kubernetes.default.svc/apis/tekton.dev/v1/namespaces/chris-students-c9344e/pipelineruns"
 
   local cmd = string.format(
-    "wget --method=POST --quiet --header='Authorization: Bearer %s' --header='Content-Type: application/json' " ..
-    "--body-file=%s --no-check-certificate -O - %s",
-    token, tmp_file, tekton_url
+    "wget --method=POST --quiet --header='Authorization: Bearer %s' " ..
+    "--header='Content-Type: application/json' --body-file=%s --no-check-certificate -O - %s",
+    token, tmp, url
   )
 
-  log("Executing: " .. cmd)
   os.execute(cmd)
-  log("Triggered Tekton pipeline for series " .. seriesId)
+  log("Tekton pipeline triggered for stable series " .. seriesId)
 end

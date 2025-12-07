@@ -147,6 +147,11 @@ Orthanc will automatically reload the script on pod restart.
 
 ## 6. Test the Setup
 
+> **Note:** After a DICOM series is uploaded, Orthanc usually takes
+> **1–2 minutes** to mark the series as *stable*. The Tekton pipeline
+> will be triggered only after this stabilization period.
+
+
 **Test 1**: Upload a DICOM series to Orthanc.
 
 Upload via:
@@ -194,7 +199,6 @@ W1028 04:57:55.433212       LUA-EVENTS LuaContext.cpp:95] Lua says: [plugin.lua]
 ```
 kubectl get pipelineruns -n chris-students-c9344e
 ```
-
 You should see entries like:
 ```
 NAME                           SUCCEEDED   REASON      STARTTIME   COMPLETIONTIME
@@ -203,6 +207,11 @@ orthanc-to-better-dicom-run-p526l   True        Succeeded   15m         13m
 ```
 
 This confirms that the conversion completed successfully on the new data.
+
+> **Note:** The Tekton pipeline typically takes **2–4 minutes** to fully
+> process the series. If you don’t see it marked as Succeeded
+> immediately, wait a few minutes and check again.
+
 
 ---
 
