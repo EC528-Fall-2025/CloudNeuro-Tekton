@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: orthanc-tekton-trigger
+  namespace: chris-students-c9344e
+rules:
+- apiGroups: ["tekton.dev"]
+  resources: ["pipelineruns"]
+  verbs: ["create", "get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: orthanc-tekton-trigger
+  namespace: chris-students-c9344e
+subjects:
+- kind: ServiceAccount
+  name: orthanc
+  namespace: chris-students-c9344e
+roleRef:
+  kind: Role
+  name: orthanc-tekton-trigger
+  apiGroup: rbac.authorization.k8s.io
