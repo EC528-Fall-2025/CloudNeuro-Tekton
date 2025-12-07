@@ -6,6 +6,7 @@
 In this project, we built an automated cloud-native neuroimaging pipeline on OpenShift and developed a workflow translation tool ("Rosetta Stone") that converts Tekton pipelines into multiple workflow languages (SLURM, Snakemake, Argo, Nextflow, WDL, etc.), improving reproducibility and interoperability across diverse compute environments.
 
 ![tektonx](./media/tektonx.png)
+![niftibrain](./media/niftibrain.gif)
 
 ### Table of Contents
 - [Summary](#summary)
