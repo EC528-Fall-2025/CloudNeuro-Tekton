@@ -14,6 +14,8 @@
 ### Summary
 In this project, we built an automated cloud-native neuroimaging pipeline on OpenShift and developed a workflow translation tool ("Rosetta Stone") that converts Tekton pipelines into multiple workflow languages (SLURM, Snakemake, Argo, Nextflow, WDL, etc.), improving reproducibility and interoperability across diverse compute environments.
 
+![tektonx](./media/tektonx.png)
+
 ### Problem Statement
 While neuroimaging research produces software tools with the potential to improve clinical outcomes and reduce physicians’ workload, the inefficiencies in usability and integration hinder the realization of this potential. Existing proprietary automation and AI platforms are prohibitively expensive, often requiring not only steep licensing fees but also in-house developers to customize them. Even when available, such tools impose steep learning curves and disrupt established clinical routines, leaving busy clinicians unable to adopt them. Usability and seamless integration are therefore essential prerequisites for translating research advances into practice.
 
@@ -213,7 +215,7 @@ The goal of this setup is to give you a reproducible environment—whether you a
      tkn pipelinerun logs -f <run>
      ```
 
-For OpenShift environment setup details see `docs/setup.md`; for Orthanc/Tekton manifests see `scripts/`.
+For OpenShift environment setup details see `docs/setup.md`; for Orthanc/Tekton manifests see `scripts/` and `Plugin/`.
 
 ### 1. Vision and Goals Of The Project
 Our minimum goal was to demonstrate the execution of neuroimaging research software, such as FreeSurfer or pl-Emerald, on OpenShift using Tekton/OpenShift pipelines. This remained as the foundation of our project:  packaging existing neuroimaging tools so they can run efficiently and reliably in a cloud-native environment, thereby automating pipeline execution and facilitating computational reproducibility through consistent containerized environments.
@@ -330,7 +332,7 @@ This project implements a cloud-native neuroimaging workflow using OpenShift, Or
 #### 4.1 High-Level Architecture
 **Global Architectural Structure of the Project:**
 The project architecture centers on containerized neuroimaging workflows deployed in Red Hat OpenShift and orchestrated with Tekton pipelines, automatically triggered via an Orthanc Lua event script. 
-![Proposed Solution Architecture](./media/ec528-solution-architecture.png)
+![Proposed Solution Architecture](./media/high-level-arch-kubernetes.png)
 
 At the high level, the architecture includes the following components:
 
