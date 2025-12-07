@@ -38,7 +38,7 @@ fi
 # 5) Deploy Orthanc via Helm
 echo " Installing Orthanc Helm chart..."
 helm upgrade --install "$RELEASE_NAME" fnndsc/orthanc \
--f helm-orthanc-values.yaml \
+-f ./scripts/helm-orthanc-values.yaml \
 -n "$NAMESPACE"
 
 echo " Waiting for Orthanc pod to be ready..."
