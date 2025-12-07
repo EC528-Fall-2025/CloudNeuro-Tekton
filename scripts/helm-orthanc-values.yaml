@@ -3,7 +3,7 @@
 route:
   enabled: true
   # !!! CHANGEME: `route.host` must be unique for each instance of Orthanc!!!
-  host: jennings-was-here.apps.shift.nerc.mghpcc.org
+  host: orthanc-chris.apps.shift.nerc.mghpcc.org
   # Enable HTTPS
   tls:
     termination: edge
@@ -40,15 +40,19 @@ persistence:
 #
 # Helm will convert the YAML values below to a JSON file expected by Orthanc.
 config:
-  Name: Jennings Was Here
+  Name: Tektonx
 
   # Hard-coded list of users who may login to Orthanc.
   RegisteredUsers:
     # <username>: <password>
     jennings: jenningswashere
 
-  # -- Configuration of Orthanc Explorer 2
-  # -- https://orthanc.uclouvain.be/book/plugins/orthanc-explorer-2.html#configuration
+  plugins:
+    - /usr/local/share/orthanc/plugins/libPythonPlugin.so
+
+  LuaScripts:
+    - /etc/orthanc/scripts/plugin.lua
+
   OrthancExplorer2:
     IsDefaultOrthancUI: true
     Theme: "dark"
@@ -71,3 +75,13 @@ crunchyPgo:
 # it might be more scalable, durable, and/or cost-effective.
 objectStorage:
   enabled: false
+
+extraVolumeMounts:
+  - name: orthanc-scripts
+    mountPath: /etc/orthanc/scripts
+
+extraVolumes:
+  - name: orthanc-scripts
+    configMap:
+      name: orthanc-scripts
+
