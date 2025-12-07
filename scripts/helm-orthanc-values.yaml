@@ -84,3 +84,4 @@ extraVolumes:
   - name: orthanc-scripts
     configMap:
       name: orthanc-scripts
+
