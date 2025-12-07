@@ -3,7 +3,7 @@ set -e
 
 # Config
 NAMESPACE="chris-students-c9344e"
-RELEASE_NAME="demo-orthanc"
+RELEASE_NAME="orthanc"
 CHART_REPO_URL="https://github.com/FNNDSC/charts.git"
 
 # 1) Install Helm
